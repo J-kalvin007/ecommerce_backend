@@ -9,6 +9,10 @@ from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
+from ecommerce_backend.users.auth_views import CustomLoginView
+
+
+
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
@@ -22,10 +26,23 @@ urlpatterns = [
     # User management
     path("users/", include("ecommerce_backend.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
+    
+    
     # Your stuff: custom urls includes go here
     # ...
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
+
+
+    path(
+        "api/auth/",
+        include("dj_rest_auth.urls")
+    ),
+
+    path(
+        "api/auth/registration/",
+        include("dj_rest_auth.registration.urls")
+    )
 ]
 if settings.DEBUG:
     # Static file serving when using Gunicorn + Uvicorn for local web socket development
@@ -43,6 +60,13 @@ urlpatterns += [
         SpectacularSwaggerView.as_view(url_name="api-schema"),
         name="api-docs",
     ),
+
+    path(
+        "api/connexion/",
+        CustomLoginView.as_view(),
+        name="rest_login",
+    ),
+
 ]
 
 if settings.DEBUG:

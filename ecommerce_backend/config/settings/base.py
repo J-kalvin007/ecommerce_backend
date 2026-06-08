@@ -16,6 +16,31 @@ if READ_DOT_ENV_FILE:
     # OS environment variables take precedence over variables from .env
     env.read_env(str(BASE_DIR / ".env"))
 
+
+
+ALLOWED_HOSTS =[
+    "*",
+    "192.168.1.80",
+    "192.168.1.76",
+]
+
+CORS_URLS_REGEX = r"^/api/.*$"
+
+# CORS
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://192.168.1.80:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# CORS_ALLOW_CREDENTIALS = True
+
+
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
@@ -81,12 +106,16 @@ THIRD_PARTY_APPS = [
     "django_celery_beat",
     "rest_framework",
     "rest_framework.authtoken",
+    "dj_rest_auth",
     "corsheaders",
     "drf_spectacular",
 ]
 
 LOCAL_APPS = [
     "ecommerce_backend.users",
+    "apps.catalog",
+    "apps.core",
+    
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -337,6 +366,21 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+
+REST_AUTH_REGISTER_SERIALIZERS = {
+    "REGISTER_SERIALIZER": "ecommerce_backend.users.serializers.CustomRegisterSerializer",
+}
+
+
+REST_AUTH = {
+    "USE_JWT": False,
+}
+
+
+REST_USE_JWT = False
+
+
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"

@@ -1,5 +1,5 @@
 # ecommerce_backend
-
+"django==6.0.6",
 Super site de e-commerce complet Juin 2026
 
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg?logo=cookiecutter)](https://github.com/cookiecutter/cookiecutter-django/)
