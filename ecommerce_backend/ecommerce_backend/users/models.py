@@ -1,80 +1,24 @@
-
-# # from typing import ClassVar
-
-# # from django.contrib.auth.models import AbstractUser
-# # from django.db.models import CharField
-# # from django.db.models import EmailField
-# # from django.urls import reverse
-# # from django.utils.translation import gettext_lazy as _
-
-# # from .managers import UserManager
-
-
-# # class User(AbstractUser):
-# #     """
-# #     Default custom user model for ecommerce_backend.
-# #     If adding fields that need to be filled at user signup,
-# #     check forms.SignupForm and forms.SocialSignupForms accordingly.
-# #     """
-
-# #     # First and last name do not cover name patterns around the globe
-# #     name = CharField(_("Name of User"), blank=True, max_length=255)
-# #     first_name = None  # type: ignore[assignment]
-# #     last_name = None  # type: ignore[assignment]
-# #     email = EmailField(_("email address"), unique=True)
-# #     username = None  # type: ignore[assignment]
-
-# #     USERNAME_FIELD = "email"
-# #     REQUIRED_FIELDS = []
-
-# #     objects: ClassVar[UserManager] = UserManager()
-
-# #     def get_absolute_url(self) -> str:
-# #         """Get URL for user's detail view.
-
-# #         Returns:
-# #             str: URL for user detail.
-
-# #         """
-# #         return reverse("users:detail", kwargs={"pk": self.id})
-
-
-
-
-
-
-
-
 # from typing import ClassVar
 
 # from django.contrib.auth.models import AbstractUser
 # from django.db import models
 # from django.utils.translation import gettext_lazy as _
-
-# # from apps.core.models import BaseModel
-# from .managers import UserManager
 # from django.urls import reverse
+
 # from allauth.account.models import EmailAddress
 
+# from apps.core.models import BaseModel
+# from .managers import UserManager
 
 
-
-
-
-
-# # class User(BaseModel, AbstractUser):
-# class User(AbstractUser):
-
+# class User(BaseModel, AbstractUser):
 
 #     class UserRole(models.TextChoices):
-#         PLATFORM_ADMIN = "platform_admin", "Platform Admin"
-#         CUSTOMER = "customer", "Customer"
-
+#         PLATFORM_ADMIN = "platform_admin", _("Platform Admin")
+#         CUSTOMER = "customer", _("Customer")
 
 #     username = None
-
 #     first_name = None
-
 #     last_name = None
 
 #     email = models.EmailField(
@@ -104,58 +48,17 @@
 #     )
 
 #     is_verified = models.BooleanField(
-#         default=False,
-#         blank=True,
-#         null=True
+#         default=False
 #     )
-
-#         created_at = models.DateTimeField(
-#         auto_now_add=True,
-#         db_index=True
-#     )
-
-#     updated_at = models.DateTimeField(
-#         auto_now=True
-#     )
-
-#     deleted_at = models.DateTimeField(
-#         null=True,
-#         blank=True
-#     )
-
-#     is_active = models.BooleanField(
-#         default=True
-#     )
-
 
 #     USERNAME_FIELD = "email"
 #     REQUIRED_FIELDS = []
 
 #     objects: ClassVar[UserManager] = UserManager()
 
-
 #     class Meta:
-#         abstract = True
-
-#     def soft_delete(self):
-#         self.deleted_at = timezone.now()
-#         self.is_active = False
-#         self.save()
-
-#     @property
-#     def is_deleted(self):
-      
-
-
-#     # def get_absolute_url(self) -> str:
-#     #     """Get URL for user's detail view.
-
-#     #     Returns:
-#     #         str: URL for user detail.
-
-#     #     """
-#     #     return reverse("users:detail", kwargs={"pk": self.id})
-
+#         verbose_name = _("user")
+#         verbose_name_plural = _("users")
 
 #     @property
 #     def email_verified(self):
@@ -164,34 +67,11 @@
 #             verified=True,
 #         ).exists()
 
-
-
-
-
 #     def get_absolute_url(self):
 #         return reverse(
 #             "users:detail",
 #             kwargs={"pk": self.pk}
 #         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

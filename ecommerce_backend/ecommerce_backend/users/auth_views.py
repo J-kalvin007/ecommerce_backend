@@ -7,6 +7,9 @@ from rest_framework import serializers
 from .serializers import UserSerializer
 
 
+class LoginResponseSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    user = UserSerializer()
 
 
 @extend_schema(
@@ -31,18 +34,6 @@ class CustomLoginView(LoginView):
                 "user": user_data,
             }
         )
-
-
-
-
-
-
-
-class LoginResponseSerializer(serializers.Serializer):
-
-    key = serializers.CharField()
-
-    user = UserSerializer()
 
 
 

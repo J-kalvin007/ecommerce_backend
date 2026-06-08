@@ -14,8 +14,9 @@ SECRET_KEY = env(
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 # ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
-ALLOWED_HOSTS = ["*"]
-
+# ALLOWED_HOSTS = ["*", "https://shed-croak-unending.ngrok-free.dev" ]
+ALLOWED_HOSTS = ["*" ]
+CSRF_TRUSTED_ORIGINS = ["https://shed-croak-unending.ngrok-free.dev"]
 
 # CACHES
 # ------------------------------------------------------------------------------
