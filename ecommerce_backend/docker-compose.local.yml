@@ -1,10 +1,9 @@
 volumes:
   ecommerce_backend_local_postgres_data: {}
   ecommerce_backend_local_postgres_data_backups: {}
-  ecommerce_backend_local_redis_data: {}
 
 services:
-  django: &django
+  django:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
@@ -12,9 +11,9 @@ services:
     container_name: ecommerce_backend_local_django
     depends_on:
       - postgres
-      - redis
       - mailpit
     volumes:
+      # .venv est isolé pour éviter le polling de fichiers Windows -> Linux (cause CPU 100%)
       - /app/.venv
       - .:/app:z
     env_file:
@@ -23,6 +22,13 @@ services:
     ports:
       - '8000:8000'
     command: /start
+    deploy:
+      resources:
+        limits:
+          cpus: '1.2'
+          memory: 1G
+        reservations:
+          memory: 512M
 
   postgres:
     build:
@@ -35,61 +41,36 @@ services:
       - ecommerce_backend_local_postgres_data_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+    # Paramètres PostgreSQL tuned pour faible RAM
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=256MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=20
+      -c synchronous_commit=off
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 128M
 
   mailpit:
     image: docker.io/axllent/mailpit:latest
     container_name: ecommerce_backend_local_mailpit
     ports:
       - "8025:8025"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
 
-  redis:
-    image: docker.io/redis:7.2
-    container_name: ecommerce_backend_local_redis
-    volumes:
-      - ecommerce_backend_local_redis_data:/data
-
-  celeryworker:
-    <<: *django
-    image: ecommerce_backend_local_celeryworker
-    container_name: ecommerce_backend_local_celeryworker
-    depends_on:
-      - redis
-      - postgres
-      - mailpit
-    ports: []
-    command: /start-celeryworker
-
-  celerybeat:
-    <<: *django
-    image: ecommerce_backend_local_celerybeat
-    container_name: ecommerce_backend_local_celerybeat
-    depends_on:
-      - redis
-      - postgres
-      - mailpit
-    ports: []
-    command: /start-celerybeat
-
-  flower:
-    <<: *django
-    image: ecommerce_backend_local_flower
-    container_name: ecommerce_backend_local_flower
-    ports:
-      - '5555:5555'
-    command: /start-flower
-
-
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: ecommerce_backend_local_pgadmin
-    depends_on:
-      - postgres
-    environment:
-      PGADMIN_DEFAULT_EMAIL: kalvin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: myriade1234
-      PGADMIN_CONFIG_SERVER_MODE: "True"
-      PGADMIN_LISTEN_PORT: 80
-    ports:
-      - "5050:80"
-    restart: unless-stopped
+# SERVICES DÉSACTIVÉS pour économiser ~1.5 GB RAM et ~1 CPU complet
+# Celery tourne désormais en mode EAGER (synchrone) via CELERY_TASK_ALWAYS_EAGER=True
+# Pour les réactiver ponctuellement : docker compose up redis celeryworker --no-deps
+#
+# Pour accéder à la base de données, utilisez DBeaver (natif Windows) sur localhost:5432
+# C'est beaucoup plus rapide que pgadmin dans un conteneur
