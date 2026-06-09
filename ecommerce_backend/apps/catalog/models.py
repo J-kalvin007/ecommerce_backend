@@ -12,6 +12,8 @@ class Category(BaseModel):
     slug = models.SlugField(
         unique=True,
         db_index=True,
+        null=True,
+        blank=True
     )
 
     parent = models.ForeignKey(
@@ -58,6 +60,8 @@ class Product(BaseModel):
     slug = models.SlugField(
         unique=True,
         db_index=True,
+        null=True,
+        blank=True
     )
 
     sku = models.CharField(
@@ -66,7 +70,10 @@ class Product(BaseModel):
         db_index=True,
     )
 
-    description = models.TextField()
+    description = models.TextField(
+        null=True,
+        blank=True
+    )
 
     product_type = models.CharField(
         max_length=20,
@@ -82,19 +89,26 @@ class Product(BaseModel):
         default=0,
     )
 
-    weight_grams = models.PositiveIntegerField()
+    weight_grams = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
 
     seo_title = models.CharField(
         max_length=255,
         blank=True,
+        null=True,
     )
 
     seo_description = models.TextField(
         blank=True,
+        null=True,
     )
 
     is_top = models.BooleanField(
         default=False,
+        null=True,
+        blank=True,
     )
 
     related_products = models.ManyToManyField(
@@ -214,6 +228,8 @@ class ProductVariant(BaseModel):
         max_length=100,
         unique=True,
         db_index=True,
+        null=True,
+        blank=True
     )
 
     price = models.DecimalField(
@@ -225,7 +241,10 @@ class ProductVariant(BaseModel):
         default=0,
     )
 
-    weight_grams = models.PositiveIntegerField()
+    weight_grams = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         ordering = ["name"]

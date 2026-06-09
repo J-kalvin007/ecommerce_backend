@@ -133,6 +133,7 @@ class ProductAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "name",
+                    "sku",
                     "slug",
                     "category",
                     "product_type",

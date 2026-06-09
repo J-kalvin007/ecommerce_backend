@@ -6,9 +6,11 @@ from dj_rest_auth.serializers import LoginSerializer
 
 
 class CustomRegisterSerializer(RegisterSerializer):
+    username = None
+    
     name = serializers.CharField(
         max_length=100,
-        required=True
+        required=False
     )
 
     def get_cleaned_data(self):
