@@ -1,8 +1,8 @@
-
-
-
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
+from .views import ToggleFavoriteView, MyFavoritesView, DeleteFavoriteView
+from .views import RateProductView, ProductRatingDetailView, DeleteRatingView
 from .views import (
     CategoryAdminViewSet,
     CategoryViewSet,
@@ -15,6 +15,7 @@ from .views import (
 app_name = "catalog"
 
 router = DefaultRouter()
+
 
 # =====================================================
 # PUBLIC API
@@ -60,4 +61,51 @@ router.register(
     basename="admin-product-variants",
 )
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("", include(router.urls)),
+
+    path(
+        "toggle/",
+        ToggleFavoriteView.as_view(),
+        name="favorites-toggle",
+    ),
+
+    path(
+        "my-favorites/",
+        MyFavoritesView.as_view(),
+        name="my-favorites",
+    ),
+
+    path(
+        "<uuid:product_id>/",
+        DeleteFavoriteView.as_view(),
+        name="favorites-delete",
+    ),
+
+
+    path(
+        "rate/",
+        RateProductView.as_view(),
+        name="ratings-rate",
+    ),
+
+    path(
+        "<uuid:product_id>/",
+        ProductRatingDetailView.as_view(),
+        name="ratings-detail",
+    ),
+
+    path(
+        "<uuid:product_id>/delete/",
+        DeleteRatingView.as_view(),
+        name="ratings-delete",
+    ),
+
+
+
+]
+
+
+
+
+

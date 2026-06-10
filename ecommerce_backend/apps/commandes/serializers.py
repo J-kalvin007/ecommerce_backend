@@ -1,14 +1,6 @@
-
-
-
 from rest_framework import serializers
 
-from apps.commandes.models import (
-    Order,
-    OrderItem,
-    OrderStatusHistory,
-    OrderStatus,
-)
+from apps.commandes.models import Order, OrderItem, OrderStatus, OrderStatusHistory
 
 
 # =====================================================
@@ -16,48 +8,21 @@ from apps.commandes.models import (
 # =====================================================
 
 class CheckoutItemSerializer(serializers.Serializer):
-
     product_id = serializers.UUIDField()
-
-    quantity = serializers.IntegerField(
-        min_value=1
-    )
+    quantity = serializers.IntegerField(min_value=1)
 
 
 class CheckoutSerializer(serializers.Serializer):
-
-    address_livraison = serializers.CharField(
-        max_length=255
-    )
-
-    phone_livraison = serializers.CharField(
-        max_length=30
-    )
-
-    city = serializers.CharField(
-        max_length=100
-    )
-
-    country = serializers.CharField(
-        max_length=100
-    )
-
-    notes = serializers.CharField(
-        required=False,
-        allow_blank=True,
-    )
-
-    items = CheckoutItemSerializer(
-        many=True
-    )
+    address_livraison = serializers.CharField(max_length=255)
+    phone_livraison = serializers.CharField(max_length=30)
+    city = serializers.CharField(max_length=100)
+    country = serializers.CharField(max_length=100)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    items = CheckoutItemSerializer(many=True)
 
     def validate_items(self, value):
-
         if not value:
-            raise serializers.ValidationError(
-                "La commande doit contenir au moins un produit."
-            )
-
+            raise serializers.ValidationError("La commande doit contenir au moins un produit.")
         return value
 
 
@@ -66,11 +31,8 @@ class CheckoutSerializer(serializers.Serializer):
 # =====================================================
 
 class OrderItemSerializer(serializers.ModelSerializer):
-
     class Meta:
-
         model = OrderItem
-
         fields = (
             "id",
             "product",
@@ -87,11 +49,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 # =====================================================
 
 class OrderListSerializer(serializers.ModelSerializer):
-
     class Meta:
-
         model = Order
-
         fields = (
             "id",
             "reference",
@@ -108,39 +67,27 @@ class OrderListSerializer(serializers.ModelSerializer):
 # =====================================================
 
 class OrderDetailSerializer(serializers.ModelSerializer):
-
-    items = OrderItemSerializer(
-        many=True,
-        read_only=True,
-    )
+    items = OrderItemSerializer(many=True, read_only=True)
 
     class Meta:
-
         model = Order
-
         fields = (
             "id",
             "reference",
             "status",
-
             "address_livraison",
             "phone_livraison",
             "city",
             "country",
-
             "items_total",
             "frais_livraison",
             "discount_amount",
             "tax_amount",
             "total_final",
-
             "notes",
-
             "paid_at",
-
             "created_at",
             "updated_at",
-
             "items",
         )
 
@@ -149,16 +96,11 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 # ORDER HISTORY
 # =====================================================
 
-class OrderHistorySerializer(
-    serializers.ModelSerializer
-):
-
+class OrderHistorySerializer(serializers.ModelSerializer):
     changed_by_email = serializers.SerializerMethodField()
 
     class Meta:
-
         model = OrderStatusHistory
-
         fields = (
             "id",
             "old_status",
@@ -168,13 +110,9 @@ class OrderHistorySerializer(
             "changed_by_email",
         )
 
-    def get_changed_by_email(
-        self,
-        obj,
-    ):
+    def get_changed_by_email(self, obj):
         if not obj.changed_by:
             return None
-
         return obj.changed_by.email
 
 
@@ -182,15 +120,6 @@ class OrderHistorySerializer(
 # ADMIN UPDATE STATUS
 # =====================================================
 
-class AdminOrderStatusSerializer(
-    serializers.Serializer
-):
-
-    status = serializers.ChoiceField(
-        choices=OrderStatus.choices
-    )
-
-    comment = serializers.CharField(
-        required=False,
-        allow_blank=True,
-    )
+class AdminOrderStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=OrderStatus.choices)
+    comment = serializers.CharField(required=False, allow_blank=True)

@@ -7,6 +7,11 @@ from .models import (
     ProductVariant,
 )
 
+from .models import Rating, Favorite
+from django.db.models import Count
+
+
+
 
 # =====================================================
 # CATEGORY
@@ -46,6 +51,29 @@ class ProductImageSerializer(serializers.ModelSerializer):
             "image",
             "alt_text",
             "is_primary",
+            "created_at",
+            "updated_at",
+            "is_active",
+        )
+
+class ProductImageAdminSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductImage
+        fields = (
+            "id",
+            "product",
+            "image",
+            "alt_text",
+            "is_primary",
+            "created_at",
+            "updated_at",
+            "is_active",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
         )
 
 
@@ -68,10 +96,35 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             "stock",
             "weight_grams",
             "is_in_stock",
+            "created_at",
+            "updated_at",
+            "is_active",
         )
 
     def get_is_in_stock(self, obj):
         return obj.stock > 0
+
+class ProductVariantAdminSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductVariant
+        fields = (
+            "id",
+            "product",
+            "name",
+            "sku",
+            "price",
+            "stock",
+            "weight_grams",
+            "created_at",
+            "updated_at",
+            "is_active",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+        )
 
 
 # =====================================================
@@ -271,3 +324,179 @@ class ProductCreateUpdateSerializer(
                 )
 
         return instance
+    
+
+
+
+
+
+
+"""
+Serializers pour le module de favoris.
+
+Validation métier minimaliste : la logique de toggle est dans la vue,
+le serializer ne fait que valider la présence et l'existence du product_id.
+"""
+
+
+class ToggleFavoriteSerializer(serializers.Serializer):
+    """
+    Serializer pour le endpoint de toggle de favori.
+    
+    Valide que le product_id fourni existe bien dans la base.
+    """
+    product_id = serializers.UUIDField()
+
+    def validate_product_id(self, value):
+        """Vérifie que le produit existe et est actif."""
+        
+
+        try:
+            product = Product.objects.get(pk=value, is_active=True)
+        except Product.DoesNotExist:
+            raise serializers.ValidationError(
+                "Produit introuvable ou inactif."
+            )
+        return value
+
+
+
+
+class FavoriteProductSerializer(serializers.Serializer):
+    """
+    Serializer pour l'affichage d'un produit dans la liste des favoris.
+    
+    Inclut les informations essentielles du produit pour l'affichage
+    dans l'interface utilisateur (pas de nested serializer Product complet
+    pour éviter de coupler les applications).
+    """
+    id = serializers.UUIDField(source="product.id")
+    name = serializers.CharField(source="product.name")
+    slug = serializers.CharField(source="product.slug")
+    price = serializers.DecimalField(
+        source="product.effective_price",
+        max_digits=12,
+        decimal_places=2,
+    )
+    image = serializers.SerializerMethodField()
+    is_in_stock = serializers.BooleanField(source="product.is_in_stock")
+    favorited_at = serializers.DateTimeField(source="created_at")
+    count_favorites = serializers.IntegerField(
+        source="product.count_favorites",
+        default=0,
+    )
+
+    def get_image(self, obj):
+        """Retourne l'URL de l'image principale du produit si elle existe."""
+        primary_image = obj.product.images.filter(is_primary=True).first()
+        if primary_image and primary_image.image:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(primary_image.image.url)
+            return primary_image.image.url
+        return None
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+Serializers pour le module de notation.
+
+- RateSerializer : validation de la note (0-5) et du product_id.
+- RatingDetailSerializer : distribution par étoile et note utilisateur.
+"""
+
+
+
+class RateSerializer(serializers.Serializer):
+    """
+    Serializer pour créer ou modifier une note.
+    
+    Valide que le score est dans l'intervalle 0-5 et que le produit existe.
+    """
+    product_id = serializers.UUIDField()
+    score = serializers.IntegerField(min_value=0, max_value=5)
+
+    def validate_product_id(self, value):
+        """Vérifie que le produit existe et est actif."""
+        from apps.catalog.models import Product
+
+        try:
+            product = Product.objects.get(pk=value, is_active=True)
+        except Product.DoesNotExist:
+            raise serializers.ValidationError(
+                "Produit introuvable ou inactif."
+            )
+        return value
+
+
+class RatingDetailSerializer(serializers.Serializer):
+    """
+    Serializer pour la réponse détaillée de notation d'un produit.
+    
+    Inclut :
+    - La distribution des notes (combien de 1★, 2★, ..., 5★)
+    - La note moyenne globale
+    - Le nombre total de notes
+    - La note de l'utilisateur connecté (null si non noté)
+    """
+    product_id = serializers.UUIDField(source="product.id")
+    product_name = serializers.CharField(source="product.name")
+    note_produit = serializers.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        source="product.note_produit",
+    )
+    count_ratings = serializers.IntegerField(source="product.count_ratings")
+    distribution = serializers.SerializerMethodField()
+    user_score = serializers.SerializerMethodField()
+
+    def get_distribution(self, obj):
+        """
+        Calcule la distribution des notes pour le produit.
+        
+        Returns:
+            dict: {1: count, 2: count, 3: count, 4: count, 5: count}
+        """
+        
+
+        distribution = (
+            Rating.objects
+            .filter(product=obj)
+            .values("score")
+            .annotate(count=Count("id"))
+            .order_by("score")
+        )
+        # Initialiser toutes les étoiles de 1 à 5
+        result = {str(i): 0 for i in range(1, 6)}
+        for entry in distribution:
+            result[str(entry["score"])] = entry["count"]
+        return result
+    
+
+
+    def get_user_score(self, obj):
+        """
+        Retourne la note de l'utilisateur connecté pour ce produit,
+        ou None s'il n'a pas encore noté.
+        """
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+
+        
+        try:
+            rating = Rating.objects.get(user=request.user, product=obj)
+            return rating.score
+        except Rating.DoesNotExist:
+            return None

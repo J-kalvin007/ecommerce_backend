@@ -1,6 +1,7 @@
 from apps.core.models import BaseModel
 from django.db import models
-
+from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 
@@ -33,6 +34,8 @@ class Category(BaseModel):
     )
 
     class Meta:
+        verbose_name = "Catégorie"
+        verbose_name_plural = "Catégories"
         ordering = ["name"]
 
     def __str__(self):
@@ -111,12 +114,35 @@ class Product(BaseModel):
         blank=True,
     )
 
+    count_favorites = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        help_text="Nombre de favoris (dénormalisé, recalculé par signal).",
+    )
+
+
+    note_produit = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.00,
+        editable=False,
+        help_text="Note moyenne du produit (dénormalisé, recalculé par signal).",
+    )
+
+    count_ratings = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        help_text="Nombre de notes (dénormalisé, recalculé par signal).",
+    )
+
     related_products = models.ManyToManyField(
         "self",
         blank=True,
     )
 
     class Meta:
+        verbose_name = "Produit"
+        verbose_name_plural = "Produits"
         ordering = ["-created_at"]
 
         indexes = [
@@ -149,10 +175,8 @@ class Product(BaseModel):
         first_variant = self.variants.first()
 
         if first_variant:
-            return sum(
-                variant.stock
-                for variant in self.variants.all()
-            )
+            total = self.variants.aggregate(total_stock=models.Sum("stock"))["total_stock"]
+            return total if total is not None else 0
 
         return self.stock
 
@@ -202,6 +226,8 @@ class ProductImage(BaseModel):
     )
 
     class Meta:
+        verbose_name = "Image Produit"
+        verbose_name_plural = "Images Produit"
         ordering = ["-is_primary"]
 
     def __str__(self):
@@ -247,6 +273,8 @@ class ProductVariant(BaseModel):
     )
 
     class Meta:
+        verbose_name = "Variante Produit"
+        verbose_name_plural = "Variantes Produit"
         ordering = ["name"]
 
     def __str__(self):
@@ -256,3 +284,118 @@ class ProductVariant(BaseModel):
 
 
 
+
+
+
+"""
+Modèle Favorite pour le système de wishlist.
+
+Contrainte d'unicité stricte au niveau base de données sur le couple
+(user, product) pour garantir l'intégrité et éviter les doublons en race condition.
+"""
+
+class Favorite(BaseModel):
+    """
+    Association favorite entre un utilisateur et un produit.
+    
+    La contrainte unique_together est appliquée au niveau de la base de données
+    pour garantir l'atomicité des opérations de toggle même en cas de requêtes
+    concurrentes.
+    
+    Attributes:
+        user: Utilisateur qui a mis en favori.
+        product: Produit mis en favori.
+        created_at: Date d'ajout aux favoris.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favorites",
+    )
+
+    product = models.ForeignKey(
+        "catalog.Product",
+        on_delete=models.CASCADE,
+        related_name="favorites",
+    )
+
+    class Meta:
+        db_table = "favorites_favorites"
+        verbose_name = "Favori"
+        verbose_name_plural = "Favoris"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="unique_favorite_user_product")
+        ]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["product", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} ♥ {self.product.name}"
+    
+
+
+
+
+
+
+    """
+Modèle Rating pour le système de notation par étoiles (0-5).
+
+Contrainte d'unicité au niveau DB sur (user, product) : un utilisateur
+ne peut avoir qu'une seule note par produit. La modification se fait
+via update_or_create (upsert).
+"""
+
+
+class Rating(BaseModel):
+    """
+    Note attribuée par un utilisateur à un produit.
+    
+    Score compris entre 0 et 5 étoiles. La contrainte unique_together
+    garantit qu'un utilisateur ne peut noter un produit qu'une seule fois.
+    
+    Attributes:
+        user: Utilisateur qui note.
+        product: Produit noté.
+        score: Note de 0 à 5.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ratings",
+    )
+
+    product = models.ForeignKey(
+        "catalog.Product",
+        on_delete=models.CASCADE,
+        related_name="ratings",
+    )
+
+    score = models.PositiveSmallIntegerField(
+        validators=[
+            MinValueValidator(0, message="La note minimale est 0."),
+            MaxValueValidator(5, message="La note maximale est 5."),
+        ],
+        help_text="Note de 0 à 5 étoiles",
+    )
+
+  
+
+    class Meta:
+        db_table = "ratings_ratings"
+        verbose_name = "Note"
+        verbose_name_plural = "Notes"
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="unique_rating_user_product")
+        ]
+        indexes = [
+            models.Index(fields=["product", "-updated_at"]),
+            models.Index(fields=["user", "-updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} → {self.product.name} : {self.score}★"

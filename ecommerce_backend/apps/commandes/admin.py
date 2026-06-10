@@ -80,6 +80,9 @@ class CartAdmin(
         "is_active",
     )
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user")
+
 
 
 @admin.register(CartItem)
@@ -108,6 +111,9 @@ class CartItemAdmin(
         "created_at",
         "updated_at",
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("cart__user", "product")
 
 
 
@@ -144,6 +150,9 @@ class OrderAdmin(
     ordering = (
         "-created_at",
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user")
 
     readonly_fields = (
         "id",
@@ -261,6 +270,9 @@ class OrderItemAdmin(
         "updated_at",
     )
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("order")
+
 
 
 
@@ -295,3 +307,6 @@ class OrderStatusHistoryAdmin(
     ordering = (
         "-created_at",
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("order", "changed_by")

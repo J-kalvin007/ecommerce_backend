@@ -39,6 +39,7 @@ urlpatterns = [
         include("dj_rest_auth.urls")
     ),
 
+
     path(
         "api/auth/registration/",
         include("dj_rest_auth.registration.urls")
@@ -52,11 +53,17 @@ urlpatterns = [
     ),
 
 
-
     path(
         "api/commandes/",
         include("apps.commandes.urls"),
     ),
+
+
+    path(
+        "/api/v1/paiements/",
+        include("apps.paiements.urls"),
+    ),
+
 ]
 
 if settings.DEBUG:

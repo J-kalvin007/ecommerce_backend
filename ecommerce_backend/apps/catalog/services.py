@@ -19,13 +19,11 @@ class ProductService:
         )
 
         if images_data:
-
-            for image_data in images_data:
-
-                ProductImage.objects.create(
-                    product=product,
-                    **image_data
-                )
+            images_to_create = [
+                ProductImage(product=product, **image_data)
+                for image_data in images_data
+            ]
+            ProductImage.objects.bulk_create(images_to_create)
 
         return product
 

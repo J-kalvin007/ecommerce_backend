@@ -1,3 +1,5 @@
+import os
+
 from .base import *  # noqa: F403
 from .base import INSTALLED_APPS
 from .base import MIDDLEWARE
@@ -95,3 +97,11 @@ INSTALLED_APPS += ["django_extensions"]
 # Celery beat propagation
 # ------------------------------------------------------------------------------
 CELERY_TASK_EAGER_PROPAGATES = True
+
+
+
+
+PAYDUNYA_API_KEY = os.environ.get("PAYDUNYA_API_KEY")
+PAYDUNYA_API_SECRET = os.environ.get("PAYDUNYA_API_SECRET")
+PAYDUNYA_MERCHANT_ID = os.environ.get("PAYDUNYA_MERCHANT_ID", "")
+PAYDUNYA_BASE_URL = os.environ.get("PAYDUNYA_BASE_URL", "https://paydunya.com/api/v1")

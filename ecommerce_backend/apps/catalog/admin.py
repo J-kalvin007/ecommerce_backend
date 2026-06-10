@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from .models import Favorite
+from .models import Rating
+
 
 from .models import (
     Category,
@@ -71,6 +74,9 @@ class CategoryAdmin(admin.ModelAdmin):
     ordering = (
         "name",
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("parent")
 
 
 # =====================================================
@@ -195,22 +201,32 @@ class ProductAdmin(admin.ModelAdmin):
         "related_products",
     )
 
+    def get_queryset(self, request):
+        from django.db.models import Prefetch
+        return super().get_queryset(request).select_related(
+            "category"
+        ).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.filter(is_primary=True),
+                to_attr="primary_images"
+            )
+        )
+
     def image_preview(self, obj):
 
-        image = obj.images.filter(
-            is_primary=True
-        ).first()
+        if hasattr(obj, "primary_images") and obj.primary_images:
+            image = obj.primary_images[0]
 
-        if image and image.image:
-
-            return format_html(
-                '<img src="{}" '
-                'width="60" '
-                'height="60" '
-                'style="border-radius:8px;'
-                'object-fit:cover;" />',
-                image.image.url,
-            )
+            if image.image:
+                return format_html(
+                    '<img src="{}" '
+                    'width="60" '
+                    'height="60" '
+                    'style="border-radius:8px;'
+                    'object-fit:cover;" />',
+                    image.image.url,
+                )
 
         return "—"
 
@@ -218,18 +234,16 @@ class ProductAdmin(admin.ModelAdmin):
 
     def image_preview_large(self, obj):
 
-        image = obj.images.filter(
-            is_primary=True
-        ).first()
+        if hasattr(obj, "primary_images") and obj.primary_images:
+            image = obj.primary_images[0]
 
-        if image and image.image:
-
-            return format_html(
-                '<img src="{}" '
-                'style="max-height:300px;'
-                'border-radius:12px;" />',
-                image.image.url,
-            )
+            if image.image:
+                return format_html(
+                    '<img src="{}" '
+                    'style="max-height:300px;'
+                    'border-radius:12px;" />',
+                    image.image.url,
+                )
 
         return "Aucune image"
 
@@ -259,6 +273,9 @@ class ProductImageAdmin(admin.ModelAdmin):
     search_fields = (
         "product__name",
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("product")
 
     def preview(self, obj):
 
@@ -301,3 +318,71 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_filter = (
         "product",
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("product")
+
+
+
+
+
+
+
+
+
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
+    list_display = ("user_email", "product_name", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("user__email", "product__name")
+    raw_id_fields = ("user", "product")
+    date_hierarchy = "created_at"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user", "product")
+
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = "Utilisateur"
+
+    def product_name(self, obj):
+        return obj.product.name
+    product_name.short_description = "Produit"
+
+
+
+
+
+
+
+
+
+
+
+
+
+@admin.register(Rating)
+class RatingAdmin(admin.ModelAdmin):
+    list_display = ("user_email", "product_name", "score_stars", "updated_at")
+    list_filter = ("score", "updated_at")
+    search_fields = ("user__email", "product__name")
+    raw_id_fields = ("user", "product")
+    readonly_fields = ("created_at", "updated_at")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user", "product")
+
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = "Utilisateur"
+
+    def product_name(self, obj):
+        return obj.product.name
+    product_name.short_description = "Produit"
+
+    def score_stars(self, obj):
+        """Affiche le score sous forme d'étoiles visuelles."""
+        return "★" * obj.score + "☆" * (5 - obj.score)
+    score_stars.short_description = "Note"

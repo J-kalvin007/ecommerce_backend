@@ -1,54 +1,30 @@
-
-
-
 from decimal import Decimal
 
-from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.db import transaction
 
 from apps.catalog.models import Product
-from apps.commandes.models import (
-    Order,
-    OrderItem,
-    OrderStatusHistory,
-)
+from apps.commandes.models import Order, OrderItem, OrderStatusHistory
 
 
 class OrderService:
 
     @staticmethod
-    def calculate_totals(items):
+    def calculate_totals(items, products_cache):
         """
-        Calcule les montants de la commande.
+        Calcule les montants de la commande sans refaire de requêtes DB.
         """
-
         items_total = Decimal("0.00")
 
         for item in items:
-
-            product = Product.objects.get(
-                id=item["product_id"],
-                is_active=True,
-            )
-
+            product = products_cache[str(item["product_id"])]
             quantity = item["quantity"]
-
-            items_total += (
-                product.price * quantity
-            )
+            items_total += product.price * quantity
 
         tax_amount = Decimal("0.00")
-
         frais_livraison = Decimal("0.00")
-
         discount_amount = Decimal("0.00")
-
-        total_final = (
-            items_total
-            + tax_amount
-            + frais_livraison
-            - discount_amount
-        )
+        total_final = items_total + tax_amount + frais_livraison - discount_amount
 
         return {
             "items_total": items_total,
@@ -107,9 +83,7 @@ class OrderService:
 
             products_cache[str(product.id)] = product
 
-        totals = OrderService.calculate_totals(
-            items
-        )
+        totals = OrderService.calculate_totals(items, products_cache)
 
         order = Order.objects.create(
             user=user,

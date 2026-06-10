@@ -116,6 +116,7 @@ LOCAL_APPS = [
     "apps.catalog",
     "apps.core",
     "apps.commandes",
+    "apps.paiements",
     
     # Your stuff: custom apps go here
 ]
