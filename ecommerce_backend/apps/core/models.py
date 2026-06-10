@@ -26,7 +26,8 @@ class BaseModel(models.Model):
     # )
 
     is_active = models.BooleanField(
-        default=True
+        default=True,
+        db_index=True
     )
 
     class Meta:

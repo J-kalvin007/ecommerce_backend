@@ -115,6 +115,7 @@ LOCAL_APPS = [
     "ecommerce_backend.users",
     "apps.catalog",
     "apps.core",
+    "apps.commandes",
     
     # Your stuff: custom apps go here
 ]

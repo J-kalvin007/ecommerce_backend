@@ -10,8 +10,16 @@ SECRET_KEY = env(
     "DJANGO_SECRET_KEY",
     default="Skd9VFlOLU7J8EiarvbHrzqRkc0MS5vuVIGYaXcYgJNh2lyQDP1MVmnWT2BAS2Iv",
 )
-ALLOWED_HOSTS = ["*"]
-CSRF_TRUSTED_ORIGINS = ["https://shed-croak-unending.ngrok-free.dev"]
+ALLOWED_HOSTS = [
+
+    "*", 
+    ".ngrok-free.dev",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+
+    "https://*.ngrok-free.dev",
+]
 
 # CACHES - LocMemCache, pas Redis (Redis n'est plus dans la stack locale)
 # ------------------------------------------------------------------------------

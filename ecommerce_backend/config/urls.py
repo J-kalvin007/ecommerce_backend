@@ -49,8 +49,16 @@ urlpatterns = [
     path(
         "api/catalog/",
         include("apps.catalog.urls"),
-    )
+    ),
+
+
+
+    path(
+        "api/commandes/",
+        include("apps.commandes.urls"),
+    ),
 ]
+
 if settings.DEBUG:
     # Static file serving when using Gunicorn + Uvicorn for local web socket development
     urlpatterns += staticfiles_urlpatterns()
