@@ -176,3 +176,26 @@ class UserAdmin(auth_admin.UserAdmin):
         )
 
     role_badge.short_description = "Role"
+
+from django.apps import apps
+
+# Hide unused third-party apps from admin to clean up the dashboard
+apps_to_hide = [
+    "django_celery_beat",
+    "sites",
+    "mfa",
+    "authtoken",
+    "socialaccount",
+    "account",
+]
+
+for app_label in apps_to_hide:
+    try:
+        app_config = apps.get_app_config(app_label)
+        for model in app_config.get_models():
+            try:
+                admin.site.unregister(model)
+            except admin.sites.NotRegistered:
+                pass
+    except LookupError:
+        pass
