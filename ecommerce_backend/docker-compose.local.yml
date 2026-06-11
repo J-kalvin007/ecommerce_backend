@@ -7,6 +7,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
+      network: host
     image: ecommerce_backend_local_django
     container_name: ecommerce_backend_local_django
     depends_on:

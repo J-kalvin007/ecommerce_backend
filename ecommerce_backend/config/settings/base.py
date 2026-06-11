@@ -3,8 +3,8 @@
 
 import ssl
 from pathlib import Path
-
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # ecommerce_backend/
@@ -117,6 +117,8 @@ LOCAL_APPS = [
     "apps.core",
     "apps.commandes",
     "apps.paiements",
+    "apps.promotions",
+    "apps.fidelites",
     
     # Your stuff: custom apps go here
 ]
@@ -346,7 +348,6 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
-ACCOUNT_USERNAME_REQUIRED = False
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # https://docs.allauth.org/en/latest/account/configuration.html
@@ -399,3 +400,34 @@ SPECTACULAR_SETTINGS = {
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+# Durée de validité des points en jours (365 = 1 an)
+LOYALTY_POINTS_EXPIRY_DAYS = env.int("LOYALTY_POINTS_EXPIRY_DAYS", 365)
+
+# Bonus de points
+LOYALTY_REFERRAL_BONUS_POINTS = env.int("LOYALTY_REFERRAL_BONUS_POINTS", 200)
+LOYALTY_BIRTHDAY_BONUS_POINTS = env.int("LOYALTY_BIRTHDAY_BONUS_POINTS", 500)
+LOYALTY_FIRST_PURCHASE_BONUS_POINTS = env.int("LOYALTY_FIRST_PURCHASE_BONUS_POINTS", 100)
+
+# ─── Celery Beat Schedule ────────────────────────────────────────────────
+# Ajouter dans CELERY_BEAT_SCHEDULE (si vous utilisez django-celery-beat)
+
+
+CELERY_BEAT_SCHEDULE = {
+    "expire-loyalty-points-daily": {
+        "task": "apps.fidelites.tasks.expire_points_task",
+        "schedule": crontab(hour=2, minute=0),  # Tous les jours à 02:00 UTC
+    },
+    "birthday-bonus-daily": {
+        "task": "apps.fidelites.tasks.birthday_bonus_task",
+        "schedule": crontab(hour=8, minute=0),  # Tous les jours à 08:00 UTC
+    },
+}
+

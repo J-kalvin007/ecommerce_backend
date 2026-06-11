@@ -190,6 +190,15 @@ class Payment(BaseModel):
         help_text="Commande associée (null pour les recharges wallet).",
     )
 
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        help_text="Utilisateur lié à la transaction (pour traçabilité globale).",
+    )
+
     provider = models.CharField(
         max_length=20,
         choices=Provider.choices,
@@ -292,3 +301,14 @@ class PayDunyaWebhookLog(BaseModel):
 
     def __str__(self):
         return f"Webhook {self.token} - {self.status_traitement}"
+
+
+class GlobalTransaction(Payment):
+    """
+    Proxy model pour afficher de manière unifiée toutes les transactions
+    (Wallet, PayDunya, etc.) dans l'administration sous un nom dédié.
+    """
+    class Meta:
+        proxy = True
+        verbose_name = "Transaction Globale"
+        verbose_name_plural = "Transactions Globales"

@@ -8,6 +8,8 @@ from .views import (
     PaymentInitiateView,
     PayDunyaWebhookView,
     AdminWithdrawView,
+    OrderRefundView,
+    MyTransfersView,
 )
 
 urlpatterns = [
@@ -45,5 +47,15 @@ urlpatterns = [
         "admin/withdraw/",
         AdminWithdrawView.as_view(),
         name="admin-withdraw",
+    ),
+    path(
+        "refund/",
+        OrderRefundView.as_view(),
+        name="order-refund",
+    ),
+    path(
+        "my-transferts/",
+        MyTransfersView.as_view(),
+        name="my-transfers",
     ),
 ]

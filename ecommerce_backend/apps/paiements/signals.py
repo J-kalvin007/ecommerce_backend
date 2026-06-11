@@ -15,3 +15,25 @@ def create_wallet_on_user_creation(sender, instance, created, **kwargs):
     """
     if created and not hasattr(instance, "wallet"):
         Wallet.objects.create(user=instance)
+
+
+from apps.commandes.models import OrderStatusHistory, OrderStatus
+from .services import PaymentService
+import logging
+
+logger = logging.getLogger(__name__)
+
+@receiver(post_save, sender=OrderStatusHistory)
+def process_refund_on_order_cancel(sender, instance, created, **kwargs):
+    """
+    Déclenche automatiquement le remboursement des paiements si la commande
+    est annulée.
+    """
+    if created and instance.new_status == OrderStatus.CANCELLED:
+        try:
+            service = PaymentService()
+            refunds = service.refund_order(instance.order)
+            if refunds:
+                logger.info(f"Remboursement automatique réussi pour la commande {instance.order.reference} ({len(refunds)} paiements).")
+        except Exception as e:
+            logger.error(f"Échec du remboursement automatique pour {instance.order.reference} : {e}")

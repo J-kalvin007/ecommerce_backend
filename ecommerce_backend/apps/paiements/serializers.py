@@ -116,3 +116,78 @@ class AdminWithdrawSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("1.00"))
     phone_number = serializers.CharField(max_length=30)
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+
+class OrderRefundSerializer(serializers.Serializer):
+    """
+    Serializer pour demander manuellement le remboursement d'une commande.
+    """
+    order_id = serializers.UUIDField()
+
+    def validate_order_id(self, value):
+        try:
+            order = Order.objects.get(pk=value)
+        except Order.DoesNotExist:
+            raise serializers.ValidationError("Commande introuvable.")
+        
+        # On ne rembourse que si la commande est bien annulée
+        if order.status != "cancelled":
+            raise serializers.ValidationError("Seules les commandes annulées peuvent être remboursées manuellement.")
+        return value
+
+
+class MyTransferSerializer(serializers.ModelSerializer):
+    """
+    Sérialise toutes les transactions financières d'un utilisateur (Wallet + PayDunya)
+    pour affichage sur le dashboard client.
+    """
+    type_label = serializers.SerializerMethodField()
+    status_label = serializers.SerializerMethodField()
+    order_reference = serializers.SerializerMethodField()
+    provider_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payment
+        fields = (
+            "id",
+            "type_label",
+            "status_label",
+            "provider_label",
+            "amount",
+            "reference_externe",
+            "order",
+            "order_reference",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_type_label(self, obj):
+        LABELS = {
+            "order_payment":  {"label": "Paiement commande",   "icon": "🛒"},
+            "wallet_topup":   {"label": "Recharge portefeuille","icon": "💰"},
+            "direct_payment": {"label": "Paiement direct",      "icon": "💳"},
+            "admin_withdraw": {"label": "Retrait",              "icon": "🏦"},
+        }
+        data = LABELS.get(obj.payment_type, {"label": obj.get_payment_type_display(), "icon": "📄"})
+        return data
+
+    def get_status_label(self, obj):
+        STATUS = {
+            "pending":  {"label": "En attente",  "color": "#f57c00"},
+            "success":  {"label": "Réussi",      "color": "#388e3c"},
+            "failed":   {"label": "Échoué",      "color": "#d32f2f"},
+            "refunded": {"label": "Remboursé",   "color": "#455a64"},
+            "cancelled":{"label": "Annulé",      "color": "#9e9e9e"},
+        }
+        return STATUS.get(obj.status, {"label": obj.get_status_display(), "color": "#999"})
+
+    def get_order_reference(self, obj):
+        return obj.order.reference if obj.order else None
+
+    def get_provider_label(self, obj):
+        PROVIDERS = {
+            "paydunya": {"label": "PayDunya",  "icon": "📱"},
+            "stripe":   {"label": "Stripe",    "icon": "💳"},
+            "wallet":   {"label": "Portefeuille interne", "icon": "👛"},
+        }
+        return PROVIDERS.get(obj.provider, {"label": obj.get_provider_display(), "icon": "🔄"})

@@ -5,6 +5,20 @@ from .base import INSTALLED_APPS
 from .base import MIDDLEWARE
 from .base import env
 
+# ─── Lecture des fichiers .envs/.local/ ───────────────────────────────────────
+# Charge automatiquement les variables d'environnement depuis les trois fichiers
+# dédiés de l'environnement de développement local.
+# Cela évite d'avoir un .env à la racine ; chaque domaine (django, postgres,
+# paiement) a son propre fichier versionnable (sauf données sensibles).
+# ------------------------------------------------------------------------------
+import pathlib as _pathlib
+
+_ENVS_LOCAL = _pathlib.Path(__file__).resolve().parent.parent.parent / ".envs" / ".local"
+for _env_file in (".django", ".postgres", ".payDunya"):
+    _env_path = _ENVS_LOCAL / _env_file
+    if _env_path.exists():
+        env.read_env(str(_env_path), overwrite=False)
+
 # GENERAL
 # ------------------------------------------------------------------------------
 DEBUG = True
@@ -74,7 +88,7 @@ if ENABLE_DEBUG_TOOLBAR:
         "SHOW_TEMPLATE_CONTEXT": True,
     }
     INTERNAL_IPS = ["127.0.0.1", "10.0.2.2"]
-    if env("USE_DOCKER") == "yes":
+    if env("USE_DOCKER", default="no") == "yes":
         import socket
         hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
         INTERNAL_IPS += ["".join([*ip.split(".")[:-1], ".1"]) for ip in ips]
@@ -84,7 +98,7 @@ if ENABLE_DEBUG_TOOLBAR:
 # On N'utilise PAS RunServerPlus stat poller : il scanne des milliers de fichiers
 # chaque seconde (dont tout le .venv) à travers le bridge WSL2/Windows → CPU 100%
 # Django native reloader (watchfiles) est plus efficace avec le volume Docker.
-if env("USE_DOCKER") == "yes":
+if env("USE_DOCKER", default="no") == "yes":
     # Utilise watchfiles (natif Django 4.2+) plutôt que le poller stat
     # watchfiles détecte les changements via événements filesystem (inotify)
     # au lieu de scanner tous les fichiers en boucle.
@@ -99,9 +113,31 @@ INSTALLED_APPS += ["django_extensions"]
 CELERY_TASK_EAGER_PROPAGATES = True
 
 
+# ─── PayDunya ─────────────────────────────────────────────────────────────────
 
+# Clés lues depuis .envs/.local/.payDunya (chargé automatiquement ci-dessus).
+#
+# Variables du fichier .payDunya :
+#   PAYDUNYA_PINCIPALE_KEY  →  Master Key (Principale Key dans leur dashboard)
+#   PAYDUNYA_PUBLIC_KEY     →  Public Key
+#   PAYDUNYA_PRIVATE_KEY    →  Private Key
+#   PAYDUNYA_TOKEN          →  IPN Secret Token
+#
+# Correspondance avec les headers de l'API PayDunya v1 :
+#   "PAYDUNYA-MASTER-KEY"   ← PAYDUNYA_PINCIPALE_KEY
+#   "PAYDUNYA-PUBLIC-KEY"   ← PAYDUNYA_PUBLIC_KEY
+#   "PAYDUNYA-PRIVATE-KEY"  ← PAYDUNYA_PRIVATE_KEY
+#   "PAYDUNYA-TOKEN"        ← PAYDUNYA_TOKEN
+# ─────────────────────────────────────────────────────────────────────────────
+PAYDUNYA_MASTER_KEY  = env("PAYDUNYA_PINCIPALE_KEY",  default="").strip()
+PAYDUNYA_PUBLIC_KEY  = env("PAYDUNYA_PUBLIC_KEY",     default="").strip()
+PAYDUNYA_PRIVATE_KEY = env("PAYDUNYA_PRIVATE_KEY",    default="").strip()
+PAYDUNYA_TOKEN       = env("PAYDUNYA_TOKEN",           default="").strip()
 
-PAYDUNYA_API_KEY = os.environ.get("PAYDUNYA_API_KEY")
-PAYDUNYA_API_SECRET = os.environ.get("PAYDUNYA_API_SECRET")
-PAYDUNYA_MERCHANT_ID = os.environ.get("PAYDUNYA_MERCHANT_ID", "")
-PAYDUNYA_BASE_URL = os.environ.get("PAYDUNYA_BASE_URL", "https://paydunya.com/api/v1")
+# URL de base de l'API PayDunya
+# Mode test  : https://paydunya.com/api/v1  (clés préfixées test_public_ / test_private_)
+# Mode live  : https://paydunya.com/api/v1  (même URL, les clés changent)
+PAYDUNYA_BASE_URL = env("PAYDUNYA_BASE_URL", default="https://paydunya.com/api/v1")
+
+# Mode de fonctionnement (test ou live) — déterminé automatiquement par la clé publique
+PAYDUNYA_MODE = "test" if PAYDUNYA_PUBLIC_KEY.startswith("test_") else "live"

@@ -62,6 +62,7 @@ class WalletService:
         amount: Decimal,
         reference: str,
         metadata: dict = None,
+        transaction_type: str = WalletTransaction.Type.DEPOSIT,
     ) -> WalletTransaction:
         """
         Crédite un wallet de manière atomique.
@@ -93,7 +94,7 @@ class WalletService:
 
         transaction_record = WalletTransaction.objects.create(
             wallet=locked_wallet,
-            transaction_type=WalletTransaction.Type.DEPOSIT,
+            transaction_type=transaction_type,
             amount=amount,
             reference=reference,
             status=WalletTransaction.Status.SUCCESS,
@@ -203,9 +204,9 @@ class PaymentService:
         wallet = self.wallet_service.get_wallet(user)
         amount = amount.quantize(Decimal("0.01"))
 
-        # Créer un Payment en attente
         payment = Payment.objects.create(
             order=None,
+            user=user,
             provider=Payment.Provider.PAYDUNYA,
             payment_type=Payment.PaymentType.WALLET_TOPUP,
             amount=amount,
@@ -239,6 +240,7 @@ class PaymentService:
 
         payment = Payment.objects.create(
             order=order,
+            user=user or (order.user if order else None),
             provider=Payment.Provider.PAYDUNYA,
             payment_type=Payment.PaymentType.DIRECT_PAYMENT,
             amount=amount,
@@ -273,7 +275,8 @@ class PaymentService:
         with transaction.atomic():
             payment = Payment.objects.create(
                 order=order,
-                provider=Payment.Provider.WALLET,
+                user=user,
+                provider=Payment.Provider.PAYDUNYA,  # Wallet interne — pas de gateway externe
                 payment_type=Payment.PaymentType.ORDER_PAYMENT,
                 amount=amount,
                 status=Payment.Status.PENDING,
@@ -417,6 +420,7 @@ class PaymentService:
         """
         amount = amount.quantize(Decimal("0.01"))
         payment = Payment.objects.create(
+            user=None, # Admin operation
             provider=Payment.Provider.PAYDUNYA,
             payment_type=Payment.PaymentType.ADMIN_WITHDRAW,
             amount=amount,
@@ -436,3 +440,45 @@ class PaymentService:
             payment.status = Payment.Status.FAILED
             payment.save(update_fields=["status"])
             raise
+
+    def refund_order(self, order: Order, description: str = "Remboursement suite à annulation") -> list[Payment]:
+        """
+        Rembourse automatiquement les paiements réussis d'une commande annulée
+        vers le portefeuille (Wallet) de l'utilisateur.
+        """
+        refunded_payments = []
+        payments = Payment.objects.filter(order=order, status=Payment.Status.SUCCESS)
+
+        if not payments.exists():
+            return refunded_payments
+
+        user = order.user
+        try:
+            wallet = self.wallet_service.get_wallet(user)
+        except WalletInactiveError:
+            # Fallback: create or get wallet if it somehow doesn't exist
+            wallet, _ = Wallet.objects.get_or_create(user=user)
+
+        with transaction.atomic():
+            for payment in payments:
+                # Mettre à jour le statut du paiement
+                payment.status = Payment.Status.REFUNDED
+                payment.save(update_fields=["status"])
+
+                # Créditer le wallet
+                self.wallet_service.credit(
+                    wallet=wallet,
+                    amount=payment.amount,
+                    reference=f"REF-{payment.pk}",
+                    metadata={"original_payment_id": payment.id, "reason": description},
+                    transaction_type=WalletTransaction.Type.REFUND
+                )
+                refunded_payments.append(payment)
+                
+                logger.info(
+                    "Paiement %s remboursé sur le wallet de %s",
+                    payment.id,
+                    user.email,
+                )
+
+        return refunded_payments

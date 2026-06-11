@@ -337,7 +337,7 @@ class FavoriteAdmin(admin.ModelAdmin):
     list_display = ("user_email", "product_name", "created_at")
     list_filter = ("created_at",)
     search_fields = ("user__email", "product__name")
-    raw_id_fields = ("user", "product")
+    autocomplete_fields = ("user", "product")
     date_hierarchy = "created_at"
 
     def get_queryset(self, request):
@@ -365,10 +365,10 @@ class FavoriteAdmin(admin.ModelAdmin):
 
 @admin.register(Rating)
 class RatingAdmin(admin.ModelAdmin):
-    list_display = ("user_email", "product_name", "score_stars", "updated_at")
+    list_display = ("user_email", "product_name", "score_badge", "updated_at")
     list_filter = ("score", "updated_at")
     search_fields = ("user__email", "product__name")
-    raw_id_fields = ("user", "product")
+    autocomplete_fields = ("user", "product")
     readonly_fields = ("created_at", "updated_at")
 
     def get_queryset(self, request):
@@ -382,7 +382,12 @@ class RatingAdmin(admin.ModelAdmin):
         return obj.product.name
     product_name.short_description = "Produit"
 
-    def score_stars(self, obj):
+    def score_badge(self, obj):
         """Affiche le score sous forme d'étoiles visuelles."""
-        return "★" * obj.score + "☆" * (5 - obj.score)
-    score_stars.short_description = "Note"
+        stars = "★" * obj.score + "☆" * (5 - obj.score)
+        color = "#fbc02d" if obj.score >= 3 else "#d32f2f"
+        return format_html(
+            '<span style="color:{}; font-size:16px; font-weight:bold;">{}</span>',
+            color, stars
+        )
+    score_badge.short_description = "Note"

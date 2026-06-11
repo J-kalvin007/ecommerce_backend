@@ -193,3 +193,75 @@ class AdminWithdrawView(APIView):
             )
         except PaymentGatewayError as e:
             return Response({"detail": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+
+class OrderRefundView(APIView):
+    """POST /api/v1/payments/refund/ - Demande manuelle de remboursement d'une commande (Admin ou client autorisé)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .serializers import OrderRefundSerializer
+        serializer = OrderRefundSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order_id = serializer.validated_data["order_id"]
+        from apps.commandes.models import Order
+        order = Order.objects.get(pk=order_id)
+
+        # Vérifier les permissions (soit admin, soit le client lui-même)
+        if not request.user.is_staff and order.user != request.user:
+            return Response(
+                {"detail": "Vous n'êtes pas autorisé à rembourser cette commande."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        payment_service = PaymentService()
+        try:
+            refunded_payments = payment_service.refund_order(order, description="Remboursement manuel via API")
+            if not refunded_payments:
+                return Response(
+                    {"detail": "Aucun paiement réussi trouvé pour cette commande."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            return Response(
+                {
+                    "detail": f"{len(refunded_payments)} paiement(s) remboursé(s) avec succès.",
+                    "refunded_payments": PaymentSerializer(refunded_payments, many=True).data
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {"detail": f"Erreur lors du remboursement : {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class MyTransfersView(ListAPIView):
+    """
+    GET /api/v1/paiements/my-transferts/
+
+    Retourne l'historique complet et unifié de toutes les transactions
+    financières de l'utilisateur connecté :
+      - Paiements de commandes (via Wallet ou PayDunya)
+      - Recharges de portefeuille
+      - Remboursements reçus
+
+    Idéal pour afficher un relevé de compte sur le dashboard client.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        from .serializers import MyTransferSerializer
+        return MyTransferSerializer
+
+    def get_queryset(self):
+        from .models import GlobalTransaction
+        return (
+            GlobalTransaction.objects
+            .filter(user=self.request.user)
+            .select_related("order", "user")
+            .order_by("-created_at")
+        )

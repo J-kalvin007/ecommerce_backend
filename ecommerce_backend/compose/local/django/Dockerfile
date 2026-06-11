@@ -1,5 +1,11 @@
 # define an alias for the specific python version used in this file.
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS python
+# Using official Docker Hub image instead of ghcr.io (which may be blocked by network/firewall)
+FROM python:3.12-slim-bookworm AS python
+
+# Install uv via official installer (requires network: host in docker-compose build config)
+RUN apt-get update && apt-get install --no-install-recommends -y curl \
+  && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
+  && rm -rf /var/lib/apt/lists/*
 
 # Python build stage
 FROM python AS python-build-stage

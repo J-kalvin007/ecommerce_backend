@@ -8,6 +8,7 @@ from apps.commandes.views import (
     MyOrderListAPIView,
     OrderDetailAPIView,
     OrderHistoryAPIView,
+    OrderCancelView,
 )
 
 app_name = "commandes"
@@ -35,6 +36,11 @@ urlpatterns = [
         "<str:reference>/history/",
         OrderHistoryAPIView.as_view(),
         name="order-history",
+    ),
+    path(
+        "<str:reference>/cancel/",
+        OrderCancelView.as_view(),
+        name="order-cancel",
     ),
 
     # ==================================================

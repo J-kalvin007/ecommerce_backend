@@ -5,7 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.commandes.filters import OrderFilter
-from apps.commandes.models import Order
+from apps.commandes.models import Order, OrderStatus
+from django.utils.translation import gettext as _
 from apps.commandes.serializers import (
     AdminOrderStatusSerializer,
     CheckoutSerializer,
@@ -72,6 +73,46 @@ class OrderHistoryAPIView(generics.ListAPIView):
             user=self.request.user,
         )
         return order.status_history.all().order_by("created_at")
+
+
+class OrderCancelView(generics.GenericAPIView):
+    """
+    Gère l'annulation d'une commande par le client.
+    Vérifie que la commande n'est pas déjà en cours d'expédition ou livrée.
+    """
+    permission_classes = [IsAuthenticated, IsCustomer]
+
+    def post(self, request, reference):
+        order = get_object_or_404(
+            Order,
+            reference=reference,
+            user=request.user,
+        )
+
+        allowed_cancel_statuses = [
+            OrderStatus.DRAFT,
+            OrderStatus.PENDING_PAYMENT,
+            OrderStatus.PAID,
+            OrderStatus.CONFIRMED,
+        ]
+
+        if order.status not in allowed_cancel_statuses:
+            return Response(
+                {'detail': _('Cette commande ne peut plus être annulée.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        OrderService.update_status(
+            order=order,
+            new_status=OrderStatus.CANCELLED,
+            changed_by=request.user,
+            comment=_("Annulation par le client"),
+        )
+
+        return Response(
+            {'detail': _('Commande annulée avec succès.')},
+            status=status.HTTP_200_OK
+        )
 
 
 # ==================================================
