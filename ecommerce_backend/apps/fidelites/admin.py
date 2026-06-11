@@ -9,25 +9,22 @@ from .services import LoyaltyService
 @admin.register(LoyaltyTier)
 class LoyaltyTierAdmin(admin.ModelAdmin):
     list_display = (
-        "name", 
-        "min_points", 
-        "min_solde", 
-        "discount_percent", 
-        "cashback_percent", 
-        "points_multiplier", 
-        "is_default"
+        "name",
+        "min_points",
+        "min_solde",
+        "discount_percent",
     )
-    list_editable = ("is_default", "min_points", "points_multiplier")
+    list_editable = ("min_points",)
     ordering = ("min_points",)
 
 
 @admin.register(LoyaltyProfile)
 class LoyaltyProfileAdmin(admin.ModelAdmin):
-    list_display = ("user_email", "tier", "points_balance", "total_points_earned", "total_solde", "referral_code")
+    list_display = ("user_email", "tier", "points_balance", "total_points_earned", "total_solde")
     list_filter = ("tier", "created_at")
-    search_fields = ("user__email", "referral_code")
-    readonly_fields = ("referral_code", "total_points_earned", "created_at", "updated_at")
-    raw_id_fields = ("user", "referred_by")
+    search_fields = ("user__email",)
+    readonly_fields = ("total_points_earned", "created_at", "updated_at")
+    raw_id_fields = ("user",)
     actions = ["recalculate_tiers", "force_recalculate_single_tier"]
 
     def user_email(self, obj):

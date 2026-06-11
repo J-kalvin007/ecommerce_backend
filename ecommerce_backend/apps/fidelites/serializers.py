@@ -17,10 +17,6 @@ class TierSerializer(serializers.ModelSerializer):
             "min_points",
             "min_solde",
             "discount_percent",
-            "cashback_percent",
-            "points_multiplier",
-            "color",
-            "icon",
         )
         read_only_fields = fields
 
@@ -30,7 +26,6 @@ class LoyaltyProfileSerializer(serializers.ModelSerializer):
     tier = TierSerializer(read_only=True)
     tier_name = serializers.CharField(source="tier.name", read_only=True)
     next_tier = serializers.SerializerMethodField()
-    referral_count = serializers.SerializerMethodField()
 
     class Meta:
         model = LoyaltyProfile
@@ -41,9 +36,6 @@ class LoyaltyProfileSerializer(serializers.ModelSerializer):
             "points_balance",
             "total_points_earned",
             "total_solde",
-            "birth_date",
-            "referral_code",
-            "referral_count",
             "next_tier",
             "created_at",
         )
@@ -65,13 +57,8 @@ class LoyaltyProfileSerializer(serializers.ModelSerializer):
             return {
                 "name": next_tier.name,
                 "points_needed": max(0, points_needed),
-                "color": next_tier.color,
             }
         return None
-
-    def get_referral_count(self, obj):
-        """Nombre de filleuls parrainés."""
-        return obj.referrals.count()
 
 
 class LoyaltyEventSerializer(serializers.ModelSerializer):

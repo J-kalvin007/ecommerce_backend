@@ -395,7 +395,7 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "ecommerce_backend API",
     "DESCRIPTION": "Documentation of API endpoints of ecommerce_backend",
     "VERSION": "1.0.0",
-    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
     "SCHEMA_PATH_PREFIX": "/api/",
 }
 # Your stuff...

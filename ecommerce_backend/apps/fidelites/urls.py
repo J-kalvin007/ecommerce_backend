@@ -8,7 +8,6 @@ from .views import (
     TiersListView,
     RedeemPointsView,
     LoyaltyEventsView,
-    ReferralView,
     AdminLoyaltyProfileViewSet,
 )
 
@@ -20,6 +19,5 @@ urlpatterns = [
     path("tiers/", TiersListView.as_view(), name="loyalty-tiers"),
     path("points/redeem/", RedeemPointsView.as_view(), name="redeem-points"),
     path("events/", LoyaltyEventsView.as_view(), name="loyalty-events"),
-    path("referral/", ReferralView.as_view(), name="loyalty-referral"),
     path("admin/", include(admin_router.urls)),
 ]

@@ -48,9 +48,6 @@ class ActivePromoCodesView(APIView):
         ).exclude(
             expires_at__isnull=False,
             expires_at__lt=now,
-        ).exclude(
-            max_uses__gt=0,
-            number_times_used__gte=models.F("max_uses"),
         ).order_by("-created_at")[:20]
 
         serializer = PromoCodeListSerializer(codes, many=True)

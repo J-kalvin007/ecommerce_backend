@@ -31,19 +31,4 @@ def expire_points_task():
         logger.error(f"Erreur lors de l'expiration des points : {e}")
         raise
 
-
-@shared_task(name="loyalty.birthday_bonus")
-def birthday_bonus_task():
-    """
-    Tâche planifiée : attribue les bonus d'anniversaire.
-
-    Planification recommandée : quotidienne, ex. 08:00 UTC.
-    """
-    logger.info("Démarrage de la tâche de bonus d'anniversaire...")
-    try:
-        count = LoyaltyService.award_birthday_bonus()
-        logger.info(f"Bonus anniversaire : {count} utilisateur(s) récompensé(s).")
-        return count
-    except Exception as e:
-        logger.error(f"Erreur lors du bonus anniversaire : {e}")
-        raise
+

@@ -10,6 +10,7 @@ from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
 from ecommerce_backend.users.auth_views import CustomLoginView
+from config.api_views import api_v1_root
 
 
 
@@ -42,6 +43,12 @@ urlpatterns = [
     path(
         "api/auth/registration/",
         include("dj_rest_auth.registration.urls")
+    ),
+
+    path(
+        "api/v1/",
+        api_v1_root,
+        name="api-v1-root"
     ),
 
     path(

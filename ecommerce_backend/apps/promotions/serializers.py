@@ -27,7 +27,6 @@ class PromoCodeListSerializer(serializers.ModelSerializer):
             "type",
             "type_display",
             "value",
-            "min_order_amount",
             "starts_at",
             "expires_at",
         )

@@ -112,40 +112,6 @@ class LoyaltyEventsView(ListAPIView):
         ).order_by("-created_at")
 
 
-class ReferralView(APIView):
-    """
-    GET /api/v1/loyalty/referral/
-    Code de parrainage + statistiques des filleuls.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        try:
-            profile = LoyaltyProfile.objects.get(user=request.user)
-        except LoyaltyProfile.DoesNotExist:
-            return Response(
-                {"detail": "Profil introuvable."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        referrals = profile.referrals.select_related("user").all()
-        referral_data = []
-        for ref in referrals:
-            first_purchase = LoyaltyEvent.objects.filter(
-                user=ref.user, reason=LoyaltyEvent.Reason.FIRST_PURCHASE
-            ).exists()
-            referral_data.append({
-                "email": ref.user.email,
-                "joined_at": ref.created_at,
-                "has_purchased": first_purchase,
-            })
-
-        return Response({
-            "referral_code": profile.referral_code,
-            "referral_count": referrals.count(),
-            "referrals": referral_data,
-        })
-
 
 # ─── Admin ────────────────────────────────────────────────────────────────
 
@@ -158,7 +124,7 @@ class AdminLoyaltyProfileViewSet(viewsets.ModelViewSet):
     queryset = LoyaltyProfile.objects.select_related("user", "tier").all()
     serializer_class = LoyaltyProfileSerializer
     permission_classes = [IsPlatformAdmin]
-    search_fields = ("user__email", "referral_code")
+    search_fields = ("user__email",)
 
     @action(detail=False, methods=["post"])
     def adjust_points(self, request):

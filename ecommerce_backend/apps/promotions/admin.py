@@ -8,13 +8,12 @@ from .models import PromoCode, PromoUsage, Soldes, Banner
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (
-        "code", 
-        "type", 
-        "value", 
-        "number_times_used", 
-        "max_uses", 
-        "is_active", 
-        "starts_at", 
+        "code",
+        "type",
+        "value",
+        "number_times_used",
+        "is_active",
+        "starts_at",
         "expires_at"
     )
     list_filter = ("type", "is_active", "starts_at", "expires_at")

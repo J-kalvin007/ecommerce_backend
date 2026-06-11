@@ -27,28 +27,10 @@ class PromoExpiredError(PromoCodeError):
     default_code = "promo_expired"
 
 
-class PromoQuotaExceededError(PromoCodeError):
-    """Le quota d'utilisation global du code promo est atteint."""
-    default_message = "Quota d'utilisation du code promo atteint."
-    default_code = "promo_quota_exceeded"
-
-
-class PromoUserQuotaExceededError(PromoCodeError):
-    """L'utilisateur a déjà utilisé ce code promo le nombre maximum autorisé."""
-    default_message = "Vous avez déjà utilisé ce code promo le nombre maximum de fois."
-    default_code = "promo_user_quota_exceeded"
-
-
 class PromoTierRestrictionError(PromoCodeError):
     """Le palier de fidélité de l'utilisateur ne permet pas d'utiliser ce code."""
     default_message = "Votre niveau de fidélité ne permet pas d'utiliser ce code promo."
     default_code = "promo_tier_restricted"
-
-
-class PromoMinOrderError(PromoCodeError):
-    """Le montant minimum de commande n'est pas atteint."""
-    default_message = "Le montant minimum de commande n'est pas atteint pour ce code promo."
-    default_code = "promo_min_order"
 
 
 class FlashSaleError(Exception):

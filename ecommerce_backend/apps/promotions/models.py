@@ -69,31 +69,6 @@ class PromoCode(BaseModel):
         editable=False,
         help_text="Compteur d'utilisations (incrémenté atomiquement).",
     )
-    
-    max_uses = models.PositiveIntegerField(
-        default=0,
-        help_text="Quota global maximum (0 = illimité).",
-    )
-    
-    max_uses_per_user = models.PositiveIntegerField(
-        default=1,
-        help_text="Quota d'utilisation par utilisateur.",
-    )
-    
-    min_order_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=Decimal("0.00"),
-        help_text="Montant minimum de commande (FCFA).",
-    )
-    
-    max_discount_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Plafond de réduction pour le type pourcentage (FCFA).",
-    )
 
     applicable_products = models.ManyToManyField(
         "catalog.Product",
@@ -120,7 +95,7 @@ class PromoCode(BaseModel):
         default=timezone.now,
         help_text="Date de début de validité.",
     )
-    
+
     expires_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -158,9 +133,6 @@ class PromoCode(BaseModel):
     def is_valid(self) -> bool:
         """
         Vérifie si le code promo est actif et dans sa période de validité.
-
-        Note: ne vérifie PAS les quotas (ces vérifications nécessitent
-        un select_for_update et sont faites dans PromoService).
         """
         now = timezone.now()
         if not self.is_active:
@@ -168,8 +140,6 @@ class PromoCode(BaseModel):
         if self.starts_at and now < self.starts_at:
             return False
         if self.expires_at and now > self.expires_at:
-            return False
-        if self.max_uses > 0 and self.number_times_used >= self.max_uses:
             return False
         return True
 
@@ -203,10 +173,6 @@ class PromoCode(BaseModel):
 
         # PERCENTAGE
         discount = (cart_total * self.value / 100).quantize(Decimal("0.01"))
-
-        # Appliquer le plafond si défini
-        if self.max_discount_amount is not None:
-            discount = min(discount, self.max_discount_amount)
 
         return discount.quantize(Decimal("0.01"))
 

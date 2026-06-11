@@ -44,7 +44,7 @@ class LoyaltyService:
         """
         Attribue des points de fidélité après une commande livrée.
 
-        Calcule les points de base (total commande × multiplicateur palier),
+        Calcule les points de base (total commande),
         ajoute un bonus premier achat si applicable.
 
         IDEMPOTENCE : vérifie si un LoyaltyEvent reason=PURCHASE existe
@@ -68,12 +68,9 @@ class LoyaltyService:
             return None
 
         profile = LoyaltyProfile.objects.select_for_update().get(user=user)
-        tier = profile.tier or LoyaltyTier.objects.filter(is_default=True).first()
 
-        # Points de base
-        base_points = int(order.total_final)
-        multiplier = tier.points_multiplier if tier else Decimal("1.00")
-        points_awarded = int(base_points * multiplier)
+        # Points de base (1 point par FCFA dépensé)
+        points_awarded = int(order.total_final)
 
         events_created = []
 
@@ -109,7 +106,7 @@ class LoyaltyService:
             reason=LoyaltyEvent.Reason.PURCHASE,
             order=order,
             expires_at=timezone.now() + datetime.timedelta(days=POINTS_EXPIRY_DAYS),
-            description=f"Points gagnés sur commande {order.reference} (×{multiplier})",
+            description=f"Points gagnés sur commande {order.reference}",
         )
 
         # Recalculer le palier
@@ -123,79 +120,7 @@ class LoyaltyService:
         )
         return event
 
-    @staticmethod
-    @transaction.atomic
-    def award_cashback(user, order) -> Optional[Decimal]:
-        """
-        Crédite le cashback dans le wallet après une commande livrée.
 
-        IDEMPOTENCE : vérifie si un WalletTransaction reason=CASHBACK existe
-        déjà pour cette commande.
-
-        Args:
-            user: Utilisateur.
-            order: Commande livrée.
-
-        Returns:
-            Decimal: Montant du cashback crédité, ou None si déjà traité.
-        """
-        from apps.paiements.models import WalletTransaction
-
-        # Anti-double-traitement
-        if WalletTransaction.objects.filter(
-            wallet__user=user,
-            reference=f"CB-{order.reference}",
-            transaction_type=WalletTransaction.Type.CASHBACK,
-        ).exists():
-            logger.info(
-                "Cashback déjà crédité pour la commande %s — ignoré.",
-                order.reference,
-            )
-            return None
-
-        profile = LoyaltyProfile.objects.get(user=user)
-        tier = profile.tier or LoyaltyTier.objects.filter(is_default=True).first()
-
-        if not tier or tier.cashback_percent == 0:
-            return Decimal("0.00")
-
-        cashback = (order.total_final * tier.cashback_percent / 100).quantize(
-            Decimal("0.01")
-        )
-
-        if cashback <= 0:
-            return Decimal("0.00")
-
-        # Créditer le wallet via WalletService (NE PAS toucher Wallet.balance directement)
-        from apps.paiements.services import WalletService
-
-        wallet = WalletService.get_wallet(user)
-        WalletService.credit(
-            wallet=wallet,
-            amount=cashback,
-            reference=f"CB-{order.reference}",
-            metadata={
-                "order_reference": order.reference,
-                "cashback_percent": str(tier.cashback_percent),
-            },
-        )
-
-        # Créer l'événement de fidélité
-        LoyaltyEvent.objects.create(
-            user=user,
-            points_delta=0,  # Le cashback n'affecte pas les points
-            new_points_balance_after=profile.points_balance,
-            reason=LoyaltyEvent.Reason.PURCHASE, # Le cashback est lié à l'achat
-            order=order,
-            description=f"Cashback {tier.cashback_percent}% : +{cashback} FCFA",
-        )
-
-        logger.info(
-            "Cashback crédité à %s : +%s FCFA",
-            user.email,
-            cashback,
-        )
-        return cashback
 
     @staticmethod
     @transaction.atomic
@@ -307,66 +232,3 @@ class LoyaltyService:
 
         logger.info("Expiration de points terminée : %d événements traités.", processed)
         return processed
-
-    @staticmethod
-    def award_referral_bonus(referrer_user, new_user):
-        """
-        Attribue un bonus de points au parrain lors du premier achat du filleul.
-
-        Args:
-            referrer_user: Le parrain.
-            new_user: Le filleul qui vient de faire son premier achat.
-        """
-        with transaction.atomic():
-            profile = LoyaltyProfile.objects.select_for_update().get(
-                user=referrer_user
-            )
-            profile.points_balance = F("points_balance") + REFERRAL_BONUS_POINTS
-            profile.total_points_earned = F("total_points_earned") + REFERRAL_BONUS_POINTS
-            profile.save(update_fields=["points_balance", "total_points_earned", "updated_at"])
-            profile.refresh_from_db()
-
-            LoyaltyEvent.objects.create(
-                user=referrer_user,
-                points_delta=REFERRAL_BONUS_POINTS,
-                new_points_balance_after=profile.points_balance,
-                reason=LoyaltyEvent.Reason.REFERRAL_BONUS,
-                description=f"Bonus parrainage : {new_user.email} a fait son premier achat.",
-            )
-            profile.recalculate_tier()
-
-    @staticmethod
-    def award_birthday_bonus():
-        """
-        Tâche planifiée quotidienne : attribue un bonus d'anniversaire
-        aux utilisateurs dont c'est l'anniversaire aujourd'hui.
-        """
-        today = timezone.now().date()
-        profiles = LoyaltyProfile.objects.filter(
-            birth_date__month=today.month,
-            birth_date__day=today.day,
-        ).select_related("user")
-
-        count = 0
-        for profile in profiles:
-            with transaction.atomic():
-                profile = LoyaltyProfile.objects.select_for_update().get(
-                    pk=profile.pk
-                )
-                profile.points_balance = F("points_balance") + BIRTHDAY_BONUS_POINTS
-                profile.total_points_earned = F("total_points_earned") + BIRTHDAY_BONUS_POINTS
-                profile.save(update_fields=["points_balance", "total_points_earned", "updated_at"])
-                profile.refresh_from_db()
-
-                LoyaltyEvent.objects.create(
-                    user=profile.user,
-                    points_delta=BIRTHDAY_BONUS_POINTS,
-                    new_points_balance_after=profile.points_balance,
-                    reason=LoyaltyEvent.Reason.BIRTHDAY_BONUS,
-                    description=f"🎂 Joyeux anniversaire ! +{BIRTHDAY_BONUS_POINTS} pts",
-                )
-                profile.recalculate_tier()
-                count += 1
-
-        logger.info("Bonus anniversaire : %d utilisateur(s) récompensé(s).", count)
-        return count

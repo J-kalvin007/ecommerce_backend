@@ -15,10 +15,7 @@ from django.utils import timezone
 from .exceptions import (
     InvalidPromoCodeError,
     PromoExpiredError,
-    PromoQuotaExceededError,
-    PromoUserQuotaExceededError,
     PromoTierRestrictionError,
-    PromoMinOrderError,
 )
 from .models import PromoCode, PromoUsage, Soldes, Banner
 
@@ -72,7 +69,7 @@ class PromoService:
         """
         cart_total = cart_total.quantize(Decimal("0.01"))
 
-        # 1. Récupérer le code promo (avec verrou pour la validation de quota)
+        # 1. Récupérer le code promo
         try:
             promo = PromoCode.objects.select_for_update().get(
                 code__iexact=code.strip().upper()
@@ -90,30 +87,8 @@ class PromoService:
         if promo.expires_at and now > promo.expires_at:
             raise PromoExpiredError()
 
-        # 3. Montant minimum de commande
-        if cart_total < promo.min_order_amount:
-            raise PromoMinOrderError(
-                f"Montant minimum de commande : {promo.min_order_amount} FCFA. "
-                f"Votre panier : {cart_total} FCFA."
-            )
-
-        # 4. Quota global (déjà sous select_for_update)
-        if promo.max_uses > 0 and promo.number_times_used >= promo.max_uses:
-            raise PromoQuotaExceededError()
-
-        # 5. Quota par utilisateur
-        user_usage_count = PromoUsage.objects.filter(
-            promo_code=promo, user=user
-        ).count()
-        if user_usage_count >= promo.max_uses_per_user:
-            raise PromoUserQuotaExceededError(
-                f"Vous avez déjà utilisé ce code {user_usage_count} fois "
-                f"(maximum : {promo.max_uses_per_user})."
-            )
-
-        # 6. Restriction de palier de fidélité
+        # 3. Restriction de palier de fidélité
         if promo.restricted_to_tiers.exists():
-            # Vérifier le palier de l'utilisateur
             try:
                 from apps.fidelites.models import LoyaltyProfile
                 profile = LoyaltyProfile.objects.get(user=user)
@@ -126,7 +101,7 @@ class PromoService:
                     "Ce code promo est réservé à certains niveaux de fidélité."
                 )
 
-        # 7. Calcul de la réduction
+        # 4. Calcul de la réduction
         discount = promo.calculate_discount(cart_total, cart_items)
 
         return promo, discount
@@ -159,13 +134,10 @@ class PromoService:
         Raises:
             PromoQuotaExceededError: Si le quota est dépassé après incrément.
         """
-        # Réincrémenter number_times_used atomiquement
+        # Incrémenter number_times_used atomiquement
         updated = PromoCode.objects.filter(
-            pk=promo_code.pk
-        ).exclude(
-            # Respecter le quota (condition de sécurité supplémentaire)
-            max_uses__gt=0,
-            number_times_used__gte=F("max_uses"),
+            pk=promo_code.pk,
+            is_active=True,
         ).update(
             number_times_used=F("number_times_used") + 1
         )

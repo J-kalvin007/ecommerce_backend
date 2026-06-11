@@ -61,12 +61,11 @@ def handle_order_status_change(sender, instance, **kwargs):
                 points_delta__gt=0,
             ).exists():
                 logger.info(
-                    "Commande %s livrée → attribution points + cashback pour %s",
+                    "Commande %s livrée → attribution points pour %s",
                     instance.reference,
                     instance.user.email,
                 )
                 LoyaltyService.award_points(user=instance.user, order=instance)
-                LoyaltyService.award_cashback(user=instance.user, order=instance)
             else:
                 logger.info(
                     "Commande %s déjà traitée pour la fidélité — ignoré.",

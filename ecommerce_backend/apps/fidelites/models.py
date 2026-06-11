@@ -13,7 +13,6 @@ Principes de conception :
 - total_points_earned est un compteur lifetime, jamais décrémenté
 - total_solde cumule les dépenses sur commandes livrées
 """
-import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -39,11 +38,6 @@ class LoyaltyTier(BaseModel):
         min_points      : Points cumulés minimum requis pour ce palier
         min_solde       : Dépenses totales minimum en FCFA (information complémentaire)
         discount_percent: Réduction automatique sur les commandes (%)
-        cashback_percent: Cashback reversé dans le wallet (%)
-        points_multiplier: Multiplicateur de points gagnés (1.0 = standard)
-        color           : Code couleur CSS pour le frontend (ex : #CD7F32)
-        icon            : Nom d'icône frontend
-        is_default      : Un seul palier doit être défini comme défaut (Bronze)
     """
 
     name = models.CharField(
@@ -72,40 +66,6 @@ class LoyaltyTier(BaseModel):
         help_text="Réduction automatique appliquée sur les commandes (%).",
     )
 
-    cashback_percent = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=Decimal("0.00"),
-        validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Cashback reversé dans le wallet après livraison (%).",
-    )
-
-    points_multiplier = models.DecimalField(
-        max_digits=4,
-        decimal_places=2,
-        default=Decimal("1.00"),
-        validators=[MinValueValidator(Decimal("0.01"))],
-        help_text="Multiplicateur de points gagnés (1.0 = standard, 2.0 = double).",
-    )
-
-    color = models.CharField(
-        max_length=20,
-        blank=True,
-        default="#CD7F32",
-        help_text="Code couleur CSS du palier (ex : #CD7F32 pour Bronze).",
-    )
-
-    icon = models.CharField(
-        max_length=50,
-        blank=True,
-        default="shield",
-        help_text="Nom d'icône frontend (ex : shield-bronze).",
-    )
-
-    is_default = models.BooleanField(
-        default=False,
-        help_text="Palier attribué automatiquement aux nouveaux utilisateurs. Un seul autorisé.",
-    )
 
     class Meta:
         db_table = "loyalty_tiers"
@@ -115,19 +75,6 @@ class LoyaltyTier(BaseModel):
 
     def __str__(self):
         return f"{self.name} (≥ {self.min_points} pts)"
-
-    def save(self, *args, **kwargs):
-        """
-        Garantit l'unicité du palier par défaut.
-
-        Si is_default=True est défini sur ce palier, tous les autres
-        paliers existants sont basculés à is_default=False avant la sauvegarde.
-        """
-        if self.is_default:
-            LoyaltyTier.objects.filter(is_default=True).exclude(pk=self.pk).update(
-                is_default=False
-            )
-        super().save(*args, **kwargs)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -142,14 +89,10 @@ class LoyaltyProfile(BaseModel):
     - Le solde de points disponibles (points_balance)
     - Le total de points gagnés lifetime (total_points_earned, jamais décrémenté)
     - Les dépenses cumulées sur commandes livrées (total_solde)
-    - La date d'anniversaire pour le bonus annuel (birth_date)
-    - Le code de parrainage unique (referral_code)
-    - Le parrain éventuel (referred_by → LoyaltyProfile)
     - Le palier actuel (tier → LoyaltyTier)
 
     Contraintes :
     - points_balance ≥ 0 (CheckConstraint BDD)
-    - referral_code est unique
     - Les débits DOIVENT passer par select_for_update() dans les services
     """
 
@@ -186,28 +129,6 @@ class LoyaltyProfile(BaseModel):
         help_text="Dépenses cumulées sur commandes livrées (FCFA).",
     )
 
-    birth_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Date de naissance pour le bonus d'anniversaire annuel.",
-    )
-
-    referral_code = models.CharField(
-        max_length=20,
-        unique=True,
-        db_index=True,
-        blank=True,
-        help_text="Code de parrainage unique auto-généré (format REF-XXXXXXXX).",
-    )
-
-    referred_by = models.ForeignKey(
-        "self",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="referrals",
-        help_text="Profil de fidélité du parrain (si ce client a été parrainé).",
-    )
 
     class Meta:
         db_table = "loyalty_profiles"
@@ -221,37 +142,11 @@ class LoyaltyProfile(BaseModel):
         ]
         indexes = [
             models.Index(fields=["tier"]),
-            models.Index(fields=["referral_code"]),
         ]
 
     def __str__(self):
         tier_name = self.tier.name if self.tier else "Aucun palier"
         return f"Loyalty {self.user.email} — {tier_name} ({self.points_balance} pts)"
-
-    def save(self, *args, **kwargs):
-        """
-        Génère un code de parrainage unique si non défini.
-        Assigne le palier par défaut si le profil est nouveau et sans palier.
-        """
-        if not self.referral_code:
-            self.referral_code = self._generate_referral_code()
-        if self.tier is None:
-            default_tier = LoyaltyTier.objects.filter(is_default=True).first()
-            if default_tier:
-                self.tier = default_tier
-        super().save(*args, **kwargs)
-
-    def _generate_referral_code(self) -> str:
-        """
-        Génère un code de parrainage unique avec préfixe REF-.
-
-        Utilise une boucle avec vérification d'unicité pour éviter les collisions.
-        La probabilité de collision est < 1/16^8 par appel.
-        """
-        while True:
-            code = f"REF-{uuid.uuid4().hex[:8].upper()}"
-            if not LoyaltyProfile.objects.filter(referral_code=code).exists():
-                return code
 
     def recalculate_tier(self) -> bool:
         """
