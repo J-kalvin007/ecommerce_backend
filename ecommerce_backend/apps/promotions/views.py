@@ -15,6 +15,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.permissions import IsPlatformAdmin
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter, inline_serializer
+from rest_framework import serializers
 from .exceptions import PromoCodeError
 from .models import PromoCode, Soldes, Banner
 from .serializers import (
@@ -39,6 +41,11 @@ class ActivePromoCodesView(APIView):
     """
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Codes promo actifs",
+        description="Liste des codes promo actifs et publics.",
+        responses=PromoCodeListSerializer(many=True)
+    )
     def get(self, request):
         from django.utils import timezone
         now = timezone.now()
@@ -62,6 +69,32 @@ class ValidatePromoCodeView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Valider un code promo",
+        description="Valide un code promo sans l'appliquer et retourne la réduction potentielle.",
+        request=ValidateCodeSerializer,
+        responses={
+            200: inline_serializer(
+                name="ValidatePromoResponse",
+                fields={
+                    "valid": serializers.BooleanField(),
+                    "code": serializers.CharField(),
+                    "type": serializers.CharField(),
+                    "value": serializers.CharField(),
+                    "discount_amount": serializers.CharField(),
+                    "description": serializers.CharField(),
+                }
+            ),
+            400: inline_serializer(
+                name="ValidatePromoErrorResponse",
+                fields={
+                    "valid": serializers.BooleanField(),
+                    "error_code": serializers.CharField(),
+                    "detail": serializers.CharField(),
+                }
+            )
+        }
+    )
     def post(self, request):
         serializer = ValidateCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -95,6 +128,31 @@ class ApplyPromoCodeView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Appliquer un code promo",
+        description="Applique un code promo à une commande existante.",
+        request=ApplyCodeSerializer,
+        responses={
+            200: inline_serializer(
+                name="ApplyPromoResponse",
+                fields={
+                    "applied": serializers.BooleanField(),
+                    "code": serializers.CharField(),
+                    "discount_amount": serializers.CharField(),
+                    "order_total_after": serializers.CharField(),
+                }
+            ),
+            400: inline_serializer(
+                name="ApplyPromoErrorResponse",
+                fields={
+                    "applied": serializers.BooleanField(),
+                    "error_code": serializers.CharField(),
+                    "detail": serializers.CharField(),
+                }
+            ),
+            404: OpenApiResponse(description="Commande introuvable.")
+        }
+    )
     def post(self, request):
         serializer = ApplyCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -141,11 +199,16 @@ class ApplyPromoCodeView(APIView):
 
 class ActiveFlashSalesView(APIView):
     """
-    GET /api/v1/promotions/flash-sales/
-    Flash sales en cours (public).
+    GET /api/v1/promotions/soldes-actifs/
+    Ventes en solde en cours (public).
     """
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Ventes en solde actives",
+        description="Liste des ventes en solde en cours.",
+        responses=SoldesSerializer(many=True)
+    )
     def get(self, request):
         flash_sales = PromoService.get_active_flash_sales()
         serializer = SoldesSerializer(
@@ -154,13 +217,23 @@ class ActiveFlashSalesView(APIView):
         return Response(serializer.data)
 
 
+
+
 class ActiveBannersView(APIView):
     """
-    GET /api/v1/promotions/banners/
-    Bannières actives (public). Filtre optionnel ?type=CAROUSEL
+    GET /api/v1/promotions/recommandations-actives/
+    Bannières publicitaires actives (public). Filtre optionnel ?type=CAROUSEL
     """
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Bannières publicitaires actives",
+        description="Liste des bannières publicitaires actives. Vous pouvez filtrer par type avec `?type=CAROUSEL`.",
+        parameters=[
+            OpenApiParameter(name="type", description="Filtre par type de bannière (ex: CAROUSEL, PROMO, INFO)", required=False, type=str)
+        ],
+        responses=BannerSerializer(many=True)
+    )
     def get(self, request):
         banner_type = request.query_params.get("type")
         banners = PromoService.get_active_banners(banner_type=banner_type)
@@ -175,23 +248,44 @@ class ActiveBannersView(APIView):
 class AdminPromoCodeViewSet(viewsets.ModelViewSet):
     """
     CRUD admin pour les codes promo.
-    POST   /api/v1/promotions/admin/codes/
-    GET    /api/v1/promotions/admin/codes/{id}/
+    POST   /api/v1/promotions/admin/codes-promo/
+    GET    /api/v1/promotions/admin/codes-promo/{id}/
     """
     queryset = PromoCode.objects.all().order_by("-created_at")
     serializer_class = AdminPromoCodeSerializer
     permission_classes = [IsPlatformAdmin]
 
-    @action(detail=True, methods=["post"])
-    def duplicate(self, request, pk=None):
-        """Duplique un code promo existant."""
-        original = self.get_object()
-        original.pk = None
-        original.code = f"{original.code}-COPY-{uuid.uuid4().hex[:4].upper()}"
-        original.number_times_used = 0
-        original.save()
-        serializer = self.get_serializer(original)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # @extend_schema(
+    #     summary="Dupliquer un code promo",
+    #     description="Crée une copie d'un code promo existant avec un nouveau code généré aléatoirement.",
+    #     responses={201: AdminPromoCodeSerializer}
+    # )
+
+    # @action(detail=True, methods=["post"])
+    # def duplicate(self, request, pk=None):
+    #     """Duplique un code promo existant."""
+    #     original = self.get_object()
+    #     original.pk = None
+    #     original.code = f"{original.code}-COPY-{uuid.uuid4().hex[:4].upper()}"
+    #     original.number_times_used = 0
+    #     original.save()
+    #     serializer = self.get_serializer(original)
+    #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+
+    @extend_schema(
+        summary="Désactiver les codes expirés",
+        description="Désactive en masse tous les codes promotionnels dont la date d'expiration est dépassée.",
+        responses={
+            200: inline_serializer(
+                name="DeactivateExpiredResponse",
+                fields={
+                    "deactivated": serializers.IntegerField(help_text="Nombre de codes désactivés.")
+                }
+            )
+        }
+    )
 
     @action(detail=False, methods=["post"])
     def deactivate_expired(self, request):
@@ -204,11 +298,15 @@ class AdminPromoCodeViewSet(viewsets.ModelViewSet):
         return Response({"deactivated": count})
 
 
+
+
 class AdminFlashSaleViewSet(viewsets.ModelViewSet):
-    """CRUD admin pour les ventes flash."""
+    """CRUD admin pour les ventes en solde."""
     queryset = Soldes.objects.all().order_by("-starts_at")
     serializer_class = AdminSoldesSerializer
     permission_classes = [IsPlatformAdmin]
+
+
 
 
 class AdminBannerViewSet(viewsets.ModelViewSet):

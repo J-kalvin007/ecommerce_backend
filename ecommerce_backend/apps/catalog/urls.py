@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from .views import ToggleFavoriteView, MyFavoritesView, DeleteFavoriteView
-from .views import RateProductView, ProductRatingDetailView, DeleteRatingView
+from .views import RateProductView, ProductRatingDetailView, DeleteRatingView, MyRatingsView
 from .views import (
     CategoryAdminViewSet,
     CategoryViewSet,
@@ -65,43 +65,47 @@ urlpatterns = [
     path("", include(router.urls)),
 
     path(
-        "toggle/",
+        "favorites-toggle/",
         ToggleFavoriteView.as_view(),
         name="favorites-toggle",
     ),
 
     path(
-        "my-favorites/",
+        "products/my-favorites/",
         MyFavoritesView.as_view(),
         name="my-favorites",
     ),
 
     path(
-        "<uuid:product_id>/",
+        "favorites-delete/<uuid:id>/",
         DeleteFavoriteView.as_view(),
         name="favorites-delete",
     ),
 
 
     path(
-        "rate/",
+        "notes-products/",
         RateProductView.as_view(),
         name="ratings-rate",
     ),
 
     path(
-        "<uuid:product_id>/",
-        ProductRatingDetailView.as_view(),
-        name="ratings-detail",
+        "notes-products/mes-notes/",
+        MyRatingsView.as_view(),
+        name="my-ratings",
     ),
 
+    # path(
+    #     "notes-products/<uuid:id>/",
+    #     ProductRatingDetailView.as_view(),
+    #     name="ratings-detail",
+    # ),
+
     path(
-        "<uuid:product_id>/delete/",
+        "notes-products/delete/<uuid:id>/",
         DeleteRatingView.as_view(),
         name="ratings-delete",
     ),
-
-
 
 ]
 

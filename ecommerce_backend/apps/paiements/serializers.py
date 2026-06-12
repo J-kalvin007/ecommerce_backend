@@ -191,3 +191,19 @@ class MyTransferSerializer(serializers.ModelSerializer):
             "wallet":   {"label": "Portefeuille interne", "icon": "👛"},
         }
         return PROVIDERS.get(obj.provider, {"label": obj.get_provider_display(), "icon": "🔄"})
+
+
+class AdminWalletSerializer(serializers.ModelSerializer):
+    """Affichage complet du wallet pour l'administration."""
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+
+    class Meta:
+        model = Wallet
+        fields = ("id", "user_email", "user_name", "balance", "status", "created_at", "updated_at")
+        read_only_fields = fields
+
+
+class AdminWalletStatusUpdateSerializer(serializers.Serializer):
+    """Mise à jour du statut d'un wallet par l'admin."""
+    status = serializers.ChoiceField(choices=Wallet.Status.choices)

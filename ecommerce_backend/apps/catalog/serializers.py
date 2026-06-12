@@ -154,6 +154,8 @@ class ProductListSerializer(serializers.ModelSerializer):
             "product_type",
             "category_name",
             "primary_image",
+            "note_produit",
+            "count_ratings",
         )
 
     def get_primary_image(self, obj):

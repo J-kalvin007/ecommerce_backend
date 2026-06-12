@@ -15,9 +15,15 @@ admin_router = DefaultRouter()
 admin_router.register(r"profiles", AdminLoyaltyProfileViewSet, basename="admin-loyalty-profiles")
 
 urlpatterns = [
-    path("me/", MyLoyaltyProfileView.as_view(), name="my-loyalty-profile"),
-    path("tiers/", TiersListView.as_view(), name="loyalty-tiers"),
-    path("points/redeem/", RedeemPointsView.as_view(), name="redeem-points"),
-    path("events/", LoyaltyEventsView.as_view(), name="loyalty-events"),
+
+    path("mon-profil-fidelite/", MyLoyaltyProfileView.as_view(), name="mon-profil-fidelite"),
+
+    path("liste-des-grades/", TiersListView.as_view(), name="liste-des-grades"),
+
+    path("depenser-mes-points/", RedeemPointsView.as_view(), name="depenser-mes-points"),
+
+    path("historique-utilisation/", LoyaltyEventsView.as_view(), name="historique-utilisation"),
+
     path("admin/", include(admin_router.urls)),
+
 ]

@@ -7,7 +7,8 @@ from rest_framework.views import APIView
 from .models import Favorite
 from .serializers import ToggleFavoriteSerializer, FavoriteProductSerializer
 from django.http import Http404
-
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from rest_framework import serializers
 
 
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -243,6 +244,29 @@ class ToggleFavoriteView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Ajouter ou retirer un produit des favoris",
+        description="Endpoint unique pour ajouter ou retirer un produit des favoris de manière atomique.",
+        request=ToggleFavoriteSerializer,
+        responses={
+            201: inline_serializer(
+                name="FavoriteAddedResponse",
+                fields={
+                    "favorited": serializers.BooleanField(),
+                    "count_favorites": serializers.IntegerField(),
+                    "product_id": serializers.CharField(),
+                }
+            ),
+            200: inline_serializer(
+                name="FavoriteRemovedResponse",
+                fields={
+                    "favorited": serializers.BooleanField(),
+                    "count_favorites": serializers.IntegerField(),
+                    "product_id": serializers.CharField(),
+                }
+            )
+        }
+    )
     @transaction.atomic
     def post(self, request):
         serializer = ToggleFavoriteSerializer(data=request.data)
@@ -301,6 +325,14 @@ class MyFavoritesView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = FavoriteProductSerializer
 
+    @extend_schema(
+        summary="Lister mes favoris",
+        description="Retourne la liste paginée des produits favoris de l'utilisateur connecté.",
+        responses=FavoriteProductSerializer(many=True)
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
         """
         Retourne les favoris de l'utilisateur avec prefetch du produit
@@ -319,9 +351,9 @@ class MyFavoritesView(ListAPIView):
 
 class DeleteFavoriteView(DestroyAPIView):
     """
-    DELETE /api/v1/favorites/{product_id}/
+    DELETE /api/v1/favorites/{id}/
     
-    Supprime un produit spécifique des favoris de l'utilisateur connecté.
+    Supprime un favori spécifique de l'utilisateur connecté par son identifiant unique.
     Retourne 404 si le favori n'existe pas.
     
     Permission: IsAuthenticated
@@ -329,20 +361,35 @@ class DeleteFavoriteView(DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        """Récupère le favori par product_id pour l'utilisateur courant."""
+        """Récupère le favori par son identifiant unique pour l'utilisateur courant."""
        
         try:
             return Favorite.objects.get(
+                pk=self.kwargs["id"],
                 user=self.request.user,
-                product_id=self.kwargs["product_id"],
             )
         except Favorite.DoesNotExist:
-            raise Http404("Ce produit n'est pas dans vos favoris.")
+            raise Http404("Ce favori n'existe pas ou ne vous appartient pas.")
 
     def perform_destroy(self, instance):
         """Supprime le favori (le signal post_delete mettra à jour le compteur)."""
         instance.delete()
 
+    @extend_schema(
+        summary="Supprimer un favori",
+        description="Supprime un produit spécifique des favoris de l'utilisateur connecté.",
+        responses={
+            200: inline_serializer(
+                name="FavoriteDeletedResponse",
+                fields={
+                    "favorited": serializers.BooleanField(),
+                    "count_favorites": serializers.IntegerField(),
+                    "product_id": serializers.CharField(),
+                }
+            ),
+            404: OpenApiResponse(description="Favori introuvable")
+        }
+    )
     def destroy(self, request, *args, **kwargs):
         """
         Supprime le favori et retourne une réponse confirmant l'action.
@@ -368,7 +415,7 @@ class DeleteFavoriteView(DestroyAPIView):
 
 
 
-    """
+"""
 Vues DRF pour le module de notation.
 
 Endpoints :
@@ -388,6 +435,24 @@ class RateProductView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Noter un produit",
+        description="Crée ou modifie la note d'un utilisateur sur un produit.",
+        request=RateSerializer,
+        responses={
+            200: inline_serializer(
+                name="RateProductResponse",
+                fields={
+                    "rated": serializers.BooleanField(),
+                    "user_score": serializers.IntegerField(),
+                    "note_produit": serializers.DecimalField(max_digits=3, decimal_places=2),
+                    "count_ratings": serializers.IntegerField(),
+                    "product_id": serializers.UUIDField(),
+                    "updated": serializers.BooleanField(),
+                }
+            )
+        }
+    )
     @transaction.atomic
     def post(self, request):
         serializer = RateSerializer(data=request.data)
@@ -398,7 +463,7 @@ class RateProductView(APIView):
 
         product = Product.objects.get(pk=product_id)
 
-        # update_or_create est atomique grâce à la contrainte unique_together
+        # update_or_create est atomique grâce à la contrainte UniqueConstraint
         # Si l'utilisateur a déjà noté, on met à jour le score.
         # Sinon, on crée une nouvelle note.
         rating, created = Rating.objects.update_or_create(
@@ -423,9 +488,11 @@ class RateProductView(APIView):
         )
 
 
+
+
 class ProductRatingDetailView(APIView):
     """
-    GET /api/v1/ratings/{product_id}/
+    GET /api/v1/ratings/{id}/
     
     Retourne les détails de notation d'un produit :
     - Distribution par étoile (1★ à 5★)
@@ -436,6 +503,14 @@ class ProductRatingDetailView(APIView):
     """
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Détails de la notation d'un produit",
+        description="Retourne les détails de notation d'un produit (distribution, moyenne, note utilisateur).",
+        responses={
+            200: RatingDetailSerializer,
+            404: OpenApiResponse(description="Produit introuvable")
+        }
+    )
     def get(self, request, product_id):
         try:
             product = Product.objects.get(pk=product_id, is_active=True)
@@ -452,32 +527,52 @@ class ProductRatingDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+
+
+
 class DeleteRatingView(DestroyAPIView):
     """
-    DELETE /api/v1/ratings/{product_id}/
+    DELETE /api/v1/ratings/{id}/
     
-    Supprime la note de l'utilisateur connecté pour un produit donné.
-    Retourne 404 si aucune note n'existe.
+    Supprime la note de l'utilisateur connecté par son identifiant unique.
+    Retourne 404 si la note n'existe pas ou n'appartient pas à l'utilisateur.
     
     Permission: IsAuthenticated
     """
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        """Récupère la note par product_id pour l'utilisateur courant."""
+        """Récupère la note par son identifiant unique pour l'utilisateur courant."""
         
         try:
             return Rating.objects.get(
+                pk=self.kwargs["id"],
                 user=self.request.user,
-                product_id=self.kwargs["product_id"],
             )
         except Rating.DoesNotExist:
-            raise Http404("Vous n'avez pas noté ce produit.")
+            raise Http404("Cette note n'existe pas ou ne vous appartient pas.")
 
     def perform_destroy(self, instance):
         """Supprime la note (le signal post_delete recalculera les agrégats)."""
         instance.delete()
 
+    @extend_schema(
+        summary="Supprimer une note",
+        description="Supprime la note de l'utilisateur connecté pour un produit donné.",
+        responses={
+            200: inline_serializer(
+                name="RatingDeletedResponse",
+                fields={
+                    "rated": serializers.BooleanField(),
+                    "user_score": serializers.IntegerField(allow_null=True),
+                    "note_produit": serializers.CharField(),
+                    "count_ratings": serializers.IntegerField(),
+                    "product_id": serializers.CharField(),
+                }
+            ),
+            404: OpenApiResponse(description="Note introuvable")
+        }
+    )
     def destroy(self, request, *args, **kwargs):
         """
         Supprime la note et retourne les agrégats mis à jour.
@@ -498,3 +593,32 @@ class DeleteRatingView(DestroyAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+
+class MyRatingsView(APIView):
+    """
+    GET /api/v1/ratings/my-ratings/
+    
+    Retourne la liste des notes données par l'utilisateur connecté.
+    Permet au frontend d'afficher la note de l'utilisateur sur les cartes produits du catalogue.
+    
+    Permission: IsAuthenticated
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Mes notes de produit",
+        description="Retourne la liste des notes de produits données par l'utilisateur connecté pour tous les produits.",
+        responses=inline_serializer(
+            name="MyRatingsResponse",
+            fields={
+                "product_id": serializers.UUIDField(),
+                "score": serializers.IntegerField(),
+            },
+            many=True
+        )
+    )
+    def get(self, request):
+        ratings = Rating.objects.filter(user=request.user).values("product_id", "score")
+        return Response(ratings, status=status.HTTP_200_OK)

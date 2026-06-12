@@ -16,17 +16,22 @@ from .views import (
 
 # Router admin
 admin_router = DefaultRouter()
-admin_router.register(r"codes", AdminPromoCodeViewSet, basename="admin-promo-codes")
-admin_router.register(r"flash-sales", AdminFlashSaleViewSet, basename="admin-flash-sales")
-admin_router.register(r"banners", AdminBannerViewSet, basename="admin-banners")
+admin_router.register(r"codes-promo", AdminPromoCodeViewSet, basename="admin-promo-codes")
+admin_router.register(r"ventes-solde", AdminFlashSaleViewSet, basename="admin-ventes-solde")
+admin_router.register(r"recommendations", AdminBannerViewSet, basename="admin-recommendations")
 
 urlpatterns = [
     # Public
-    path("codes/", ActivePromoCodesView.as_view(), name="active-promo-codes"),
-    path("codes/validate/", ValidatePromoCodeView.as_view(), name="validate-promo-code"),
-    path("codes/apply/", ApplyPromoCodeView.as_view(), name="apply-promo-code"),
-    path("flash-sales/", ActiveFlashSalesView.as_view(), name="active-flash-sales"),
-    path("banners/", ActiveBannersView.as_view(), name="active-banners"),
+    path("codes-promo-actifs/", ActivePromoCodesView.as_view(), name="active-promo-codes"),
+
+    path("codes-promo/validate/", ValidatePromoCodeView.as_view(), name="validate-promo-code"),
+
+    # path("codes-promo/apply/", ApplyPromoCodeView.as_view(), name="apply-promo-code"),
+    
+    path("soldes-actifs/", ActiveFlashSalesView.as_view(), name="active-flash-sales"),
+
+    path("recommendations-actives/", ActiveBannersView.as_view(), name="active-banners"),
+    
     # Admin
     path("admin/", include(admin_router.urls)),
 ]

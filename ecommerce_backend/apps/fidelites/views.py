@@ -18,6 +18,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.permissions import IsPlatformAdmin
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from rest_framework import serializers
 from .models import LoyaltyTier, LoyaltyProfile, LoyaltyEvent
 from .serializers import (
     TierSerializer,
@@ -36,6 +38,14 @@ class MyLoyaltyProfileView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Mon profil de fidélité",
+        description="Profil de fidélité complet de l'utilisateur connecté.",
+        responses={
+            200: LoyaltyProfileSerializer,
+            404: OpenApiResponse(description="Profil de fidélité introuvable.")
+        }
+    )
     def get(self, request):
         try:
             profile = LoyaltyProfile.objects.select_related("tier").get(
@@ -52,11 +62,16 @@ class MyLoyaltyProfileView(APIView):
 
 class TiersListView(APIView):
     """
-    GET /api/v1/loyalty/tiers/
+    GET /api/v1/fidelites/tiers/
     Liste de tous les paliers avec leurs avantages (public).
     """
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Liste des paliers",
+        description="Liste de tous les paliers de fidélité avec leurs avantages.",
+        responses=TierSerializer(many=True)
+    )
     def get(self, request):
         tiers = LoyaltyTier.objects.all().order_by("min_points")
         serializer = TierSerializer(tiers, many=True)
@@ -70,6 +85,23 @@ class RedeemPointsView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Dépenser des points",
+        description="Dépenser des points de fidélité sur une commande.",
+        request=RedeemPointsSerializer,
+        responses={
+            200: inline_serializer(
+                name="RedeemPointsResponse",
+                fields={
+                    "success": serializers.BooleanField(),
+                    "points_spent": serializers.IntegerField(),
+                    "discount_amount": serializers.CharField(),
+                    "order_total_after": serializers.CharField(),
+                }
+            ),
+            400: OpenApiResponse(description="Erreur de validation ou points insuffisants.")
+        }
+    )
     def post(self, request):
         serializer = RedeemPointsSerializer(
             data=request.data, context={"request": request}
@@ -106,6 +138,14 @@ class LoyaltyEventsView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LoyaltyEventSerializer
 
+    @extend_schema(
+        summary="Journal des événements",
+        description="Journal paginé des événements de points de l'utilisateur connecté.",
+        responses=LoyaltyEventSerializer(many=True)
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
         return LoyaltyEvent.objects.filter(
             user=self.request.user
@@ -125,6 +165,25 @@ class AdminLoyaltyProfileViewSet(viewsets.ModelViewSet):
     serializer_class = LoyaltyProfileSerializer
     permission_classes = [IsPlatformAdmin]
     search_fields = ("user__email",)
+
+    @extend_schema(
+        summary="Ajuster les points (Admin)",
+        description="Ajustement manuel de points pour un utilisateur par un administrateur.",
+        request=AdminAdjustPointsSerializer,
+        responses={
+            200: inline_serializer(
+                name="AdminAdjustPointsResponse",
+                fields={
+                    "success": serializers.BooleanField(),
+                    "user_email": serializers.EmailField(),
+                    "points_adjusted": serializers.IntegerField(),
+                    "new_balance": serializers.IntegerField(),
+                }
+            ),
+            404: OpenApiResponse(description="Utilisateur introuvable.")
+        }
+    )
+
 
     @action(detail=False, methods=["post"])
     def adjust_points(self, request):

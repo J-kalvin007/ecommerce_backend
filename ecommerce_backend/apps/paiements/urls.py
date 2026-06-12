@@ -9,53 +9,76 @@ from .views import (
     PayDunyaWebhookView,
     AdminWithdrawView,
     OrderRefundView,
-    MyTransfersView,
+    AdminAllTransactionsView,
+    AdminWalletListView,
+    AdminWalletStatusUpdateView,
 )
 
 urlpatterns = [
+
     path(
-        "wallet/",
+        "my-wallet/",
         WalletBalanceView.as_view(),
         name="wallet-balance",
     ),
+
     path(
         "wallet/deposit/",
         WalletDepositView.as_view(),
         name="wallet-deposit",
     ),
+
     path(
-        "wallet/pay/",
+        "wallet/achat/",
         WalletPayView.as_view(),
         name="wallet-pay",
     ),
+
     path(
-        "wallet/transactions/",
+        "wallet/historique-transactions/",
         WalletTransactionsView.as_view(),
-        name="wallet-transactions",
+        name="wallet-historique-transactions",
     ),
+
     path(
-        "initiate/",
+        "initier-paiement-direct/",
         PaymentInitiateView.as_view(),
-        name="payment-initiate",
+        name="initier-paiement-direct",
     ),
+
     path(
         "webhook/paydunya/",
         PayDunyaWebhookView.as_view(),
         name="paydunya-webhook",
     ),
+
     path(
-        "admin/withdraw/",
+        "admin/retrait-fonds/",
         AdminWithdrawView.as_view(),
-        name="admin-withdraw",
+        name="retrait-fonds",
     ),
+
     path(
-        "refund/",
+        "remboursement-commande/",
         OrderRefundView.as_view(),
-        name="order-refund",
+        name="remboursement-commande",
     ),
+
     path(
-        "my-transferts/",
-        MyTransfersView.as_view(),
-        name="my-transfers",
+        "admin/all-transactions/",
+        AdminAllTransactionsView.as_view(),
+        name="all-transactions",
+    ),
+
+    path(
+        "admin/all-wallets/",
+        AdminWalletListView.as_view(),
+        name="admin-all-wallets",
+    ),
+
+    path(
+        "admin/wallets/<uuid:pk>/status/",
+        AdminWalletStatusUpdateView.as_view(),
+        name="admin-wallets-status-update",
     ),
 ]

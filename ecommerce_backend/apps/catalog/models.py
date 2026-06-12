@@ -354,7 +354,7 @@ class Rating(BaseModel):
     """
     Note attribuée par un utilisateur à un produit.
     
-    Score compris entre 0 et 5 étoiles. La contrainte unique_together
+    Score compris entre 0 et 5 étoiles. La contrainte UniqueConstraint
     garantit qu'un utilisateur ne peut noter un produit qu'une seule fois.
     
     Attributes:
