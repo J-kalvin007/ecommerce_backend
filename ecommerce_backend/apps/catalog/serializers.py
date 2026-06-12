@@ -156,6 +156,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "primary_image",
             "note_produit",
             "count_ratings",
+            "count_favorites",
         )
 
     def get_primary_image(self, obj):
@@ -217,6 +218,9 @@ class ProductDetailSerializer(ProductListSerializer):
             "images",
             "variants",
             "related_products",
+            "note_produit",
+            "count_ratings",
+            "count_favorites",
             "created_at",
             "updated_at",
         )
@@ -386,6 +390,7 @@ class FavoriteProductSerializer(serializers.Serializer):
     count_favorites = serializers.IntegerField(
         source="product.count_favorites",
         default=0,
+        help_text="Nombre total de favoris pour ce produit"
     )
 
     def get_image(self, obj):
@@ -459,7 +464,7 @@ class RatingDetailSerializer(serializers.Serializer):
         decimal_places=2,
         source="product.note_produit",
     )
-    count_ratings = serializers.IntegerField(source="product.count_ratings")
+    count_ratings = serializers.IntegerField(source="product.count_ratings", help_text="Nombre total de notes")
     distribution = serializers.SerializerMethodField()
     user_score = serializers.SerializerMethodField()
 
