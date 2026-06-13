@@ -22,6 +22,8 @@ ALLOWED_HOSTS =[
     "*",
     "192.168.1.80",
     "192.168.1.76",
+    "localhost:3000",
+    'http://localhost:3000',
 ]
 
 CORS_URLS_REGEX = r"^/api/.*$"
